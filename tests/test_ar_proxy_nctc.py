@@ -1,7 +1,10 @@
 import unittest
 
 from mindrl_repo.ar_proxy_nctc import (
+    bootstrap_mean_ci,
+    build_block_nctc_record,
     build_proxy_record,
+    default_block_starts,
     pair_normalized_dependency_gap,
     summarize_proxy_records,
 )
@@ -52,6 +55,34 @@ class ARProxyNCTCTest(unittest.TestCase):
         self.assertEqual([summary.count for summary in summaries], [2, 1])
         self.assertAlmostEqual(summaries[0].mean_pair_normalized_gap, 0.7)
         self.assertAlmostEqual(summaries[1].mean_pair_normalized_gap, 0.2)
+
+    def test_build_block_nctc_record_averages_multiple_orders(self):
+        record = build_block_nctc_record(
+            task="gsm8k",
+            dependency_group="high",
+            block_start=4,
+            joint_order_logprobs=[[-0.4, -0.5, -0.6], [-0.6, -0.5, -0.4]],
+            marginal_logprobs=[-1.0, -1.1, -1.2],
+        )
+
+        self.assertEqual(record.block_start, 4)
+        self.assertEqual(record.token_count, 3)
+        self.assertEqual(record.order_count, 2)
+        self.assertAlmostEqual(record.mean_joint_logprob, -1.5)
+        self.assertAlmostEqual(record.marginal_logprob, -3.3)
+        self.assertAlmostEqual(record.pair_normalized_nctc, 1.8 / 3)
+
+    def test_default_block_starts_uses_stride(self):
+        self.assertEqual(default_block_starts(10, block_size=4, stride=3), [0, 3, 6])
+        self.assertEqual(default_block_starts(3, block_size=4), [])
+
+    def test_bootstrap_mean_ci_is_deterministic(self):
+        ci = bootstrap_mean_ci([1.0, 2.0, 3.0], samples=20, seed=7)
+
+        self.assertAlmostEqual(ci.mean, 2.0)
+        self.assertEqual(ci.samples, 20)
+        self.assertLessEqual(ci.low, ci.mean)
+        self.assertGreaterEqual(ci.high, ci.mean)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,16 @@ class CompletionBlockScores:
     token_count: int
 
 
+@dataclass
+class MultiOrderBlockScores:
+    """Teacher-forced logprob terms for one sampled completion block."""
+
+    block_start: int
+    joint_order_logprobs: list[list[float]]
+    prompt_only_marginal_logprobs: list[float]
+    token_count: int
+
+
 class HFCausalLMScorer:
     """Teacher-forcing scorer for causal LMs."""
 
@@ -76,6 +86,56 @@ class HFCausalLMScorer:
             token_count=len(completion_ids),
         )
 
+    def score_text_block_orders(
+        self,
+        prompt: str,
+        completion: str,
+        block_start: int,
+        block_size: int,
+        orders: list[list[int]],
+    ) -> MultiOrderBlockScores:
+        """Score a sampled completion block with explicit within-block orders.
+
+        The causal-LM scorer is still a proxy for the paper's paired AR-to-dLLM
+        protocol: each block token is scored under the prompt plus the already
+        revealed block tokens in the requested order.
+        """
+
+        prompt_ids = self.tokenizer(
+            prompt,
+            return_tensors="pt",
+            add_special_tokens=False,
+        ).input_ids[0]
+        completion_ids = self.tokenizer(
+            completion,
+            return_tensors="pt",
+            add_special_tokens=False,
+        ).input_ids[0]
+        if len(prompt_ids) == 0:
+            raise ValueError("prompt must tokenize to at least one token")
+        if block_start < 0:
+            raise ValueError("block_start must be non-negative")
+        if block_size < 1:
+            raise ValueError("block_size must be at least one")
+        block_end = block_start + block_size
+        if block_end > len(completion_ids):
+            raise ValueError("sampled block exceeds completion token count")
+
+        block_ids = completion_ids[block_start:block_end]
+        joint_orders, marginals = score_completion_block_orders(
+            self.model,
+            prompt_ids,
+            block_ids,
+            orders,
+            self.device,
+        )
+        return MultiOrderBlockScores(
+            block_start=block_start,
+            joint_order_logprobs=joint_orders,
+            prompt_only_marginal_logprobs=marginals,
+            token_count=len(block_ids),
+        )
+
 
 @torch.no_grad()
 def score_completion_token_ids(
@@ -105,6 +165,48 @@ def score_completion_token_ids(
         float(prompt_log_probs[token_id].cpu()) for token_id in completion_ids.tolist()
     ]
     return joint_logprobs, marginal_logprobs
+
+
+@torch.no_grad()
+def score_completion_block_orders(
+    model: AutoModelForCausalLM,
+    prompt_ids: torch.Tensor,
+    block_ids: torch.Tensor,
+    orders: list[list[int]],
+    device: torch.device,
+) -> tuple[list[list[float]], list[float]]:
+    """Score one block under multiple causal reveal orders."""
+
+    if len(block_ids) == 0:
+        raise ValueError("block_ids must not be empty")
+    if not orders:
+        raise ValueError("orders must not be empty")
+
+    prompt_ids = prompt_ids.to(device)
+    block_ids = block_ids.to(device)
+    block_len = int(block_ids.shape[0])
+    for order in orders:
+        if sorted(order) != list(range(block_len)):
+            raise ValueError("each order must be a permutation of block positions")
+
+    prompt_logits = model(prompt_ids.unsqueeze(0)).logits[0, -1]
+    prompt_log_probs = torch.log_softmax(prompt_logits, dim=-1)
+    marginal_logprobs = [
+        float(prompt_log_probs[token_id].cpu()) for token_id in block_ids.tolist()
+    ]
+
+    joint_orders: list[list[float]] = []
+    for order in orders:
+        revealed = prompt_ids
+        ordering_scores: list[float] = []
+        for block_position in order:
+            token_id = block_ids[block_position]
+            logits = model(revealed.unsqueeze(0)).logits[0, -1]
+            log_probs = torch.log_softmax(logits, dim=-1)
+            ordering_scores.append(float(log_probs[int(token_id)].cpu()))
+            revealed = torch.cat([revealed, token_id.reshape(1)], dim=0)
+        joint_orders.append(ordering_scores)
+    return joint_orders, marginal_logprobs
 
 
 def resolve_device(device: DeviceSpec) -> torch.device:

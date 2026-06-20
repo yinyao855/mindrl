@@ -22,6 +22,11 @@ uv run python examples/minimal_discrete_repro.py
 uv run python examples/offline_random_ar_proxy_nctc.py
 ```
 
+Chinese reproduction notes:
+
+- `docs/reproduction_runbook_zh.md`
+- `docs/mindrl_80_reproduction_report_zh.md`
+
 CPU-only task-level pilot without any model download:
 
 ```bash
