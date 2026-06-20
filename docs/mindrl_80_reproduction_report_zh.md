@@ -165,3 +165,86 @@ accelerate launch eval_llada.py \
 论文实证复现：约 35-45% 完成
 完整 paper-close 复现：仍需真实 LLaDA/Dream 评测
 ```
+
+## 2026-06-21 真实运行记录
+
+### Qwen3-0.6B block-level nCTC
+
+已在 GPU4 上运行 `Qwen/Qwen3-0.6B` 的 block-level multi-order nCTC。
+
+block size 4：
+
+```text
+task_summary
+gsm8k     count=13 mean_pair_normalized_nctc=2.996369
+hellaswag count=4  mean_pair_normalized_nctc=1.570262
+humaneval count=13 mean_pair_normalized_nctc=3.994991
+math      count=9  mean_pair_normalized_nctc=2.285404
+
+dependency_group_summary
+high count=35 mean_pair_normalized_nctc=3.184466
+low  count=4  mean_pair_normalized_nctc=1.570262
+```
+
+block size 2：
+
+```text
+task_summary
+gsm8k     count=26 mean_pair_normalized_nctc=4.030950
+hellaswag count=8  mean_pair_normalized_nctc=2.018066
+humaneval count=27 mean_pair_normalized_nctc=6.202091
+lambada   count=2  mean_pair_normalized_nctc=1.381958
+math      count=20 mean_pair_normalized_nctc=3.348492
+
+dependency_group_summary
+high count=73 mean_pair_normalized_nctc=4.647000
+low  count=10 mean_pair_normalized_nctc=1.890845
+```
+
+逐 block 记录已保存：
+
+```text
+outputs/qwen3_0_6b_block_nctc.jsonl
+outputs/qwen3_0_6b_block2_nctc.jsonl
+```
+
+结论：在 block-level / multi-order 协议下，Qwen3-0.6B 的 high dependency
+组 nCTC 高于 low dependency 组。这比早先整段 AR-only proxy 更符合论文语言侧结论。
+
+### LLaDA / Dream preflight
+
+已通过 Hugging Face 代理检查：
+
+```text
+GSAI-ML/LLaDA-8B-Instruct config/tokenizer OK
+Dream-org/Dream-v0-Instruct-7B config/tokenizer OK
+```
+
+进一步尝试加载 LLaDA-8B 权重时，权重下载成功，但模型加载失败：
+
+```text
+AttributeError: 'LLaDAModelLM' object has no attribute 'all_tied_weights_keys'
+```
+
+该错误更像是当前 `transformers==5.12.1` 与 LLaDA remote code 不兼容，
+而不是显存不足。LLaDA 官方通常要求较旧的 `transformers` 版本；因此真实 dLLM
+复现建议单独建立环境，例如：
+
+```text
+transformers==4.38.2
+torch==2.7.1+cu128 或 LLaDA/DepCap 推荐版本
+```
+
+然后在外部 LLaDA/DepCap repo 中运行 fixed/adaptive decoding benchmark。
+
+### 当前 paper-close 程度
+
+更新后的判断：
+
+```text
+工程支架：约 80% 完成
+语言侧 nCTC 实证：约 60% 完成
+dLLM fixed/adaptive 实证：preflight 完成，但真实评测未完成
+diffusion/flow 实证：toy surrogate 完成，真实模型未完成
+完整 paper-close 复现：仍需 LLaDA/Dream 独立环境评测
+```
