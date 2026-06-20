@@ -236,6 +236,52 @@ lambada   count=2 mean_log_likelihood=-3.641876
 该结果只说明 LLaDA likelihood evaluation path 已经可跑；若要用于论文结论，需要做
 长度归一化、block-level nCTC 或 fixed/adaptive decoding 指标。
 
+### LLaDA fixed/adaptive generation smoke
+
+已在 curated benchmark 10 条样本上运行 LLaDA-8B-Instruct 生成对比：
+
+```text
+gen_length: 32
+steps: 32
+modes:
+  fixed_b8
+  fixed_b16
+  adaptive_task_gated
+```
+
+其中 `adaptive_task_gated` 是轻量 proxy：high-dep 样本使用 block 8，
+low-dep 样本使用 block 16。它不是论文的 token-level uncertainty adaptive，
+但已经是同一个真实 LLaDA 模型上的 fixed/adaptive block 对比 smoke。
+
+输出文件：
+
+```text
+outputs/llada_fixed_adaptive_smoke.jsonl
+```
+
+汇总：
+
+```text
+mode_summary
+adaptive_task_gated count=10 mean_f1=0.650485 mean_seconds=1.091122
+fixed_b16           count=10 mean_f1=0.637152 mean_seconds=1.090787
+fixed_b8            count=10 mean_f1=0.568667 mean_seconds=1.141657
+
+group_mode_summary
+high adaptive_task_gated count=6 mean_f1=0.721397
+high fixed_b16           count=6 mean_f1=0.699175
+high fixed_b8            count=6 mean_f1=0.721397
+low  adaptive_task_gated count=4 mean_f1=0.544118
+low  fixed_b16           count=4 mean_f1=0.544118
+low  fixed_b8            count=4 mean_f1=0.339572
+```
+
+解释：
+
+- high 组中 adaptive 与 fixed_b8 等价，因此结果相同。
+- low 组中 adaptive 与 fixed_b16 等价，因此避免了 fixed_b8 在短 completion 上的退化。
+- 该 smoke 支持“按依赖强度选择 block granularity 有意义”这个方向，但还不能替代论文的动态 uncertainty-guided adaptive decoding。
+
 重现命令：
 
 ```bash
@@ -258,7 +304,7 @@ HTTPS_PROXY="http://10.11.0.51:7890" \
 ```text
 工程支架：约 80% 完成
 语言侧 nCTC 实证：约 60% 完成
-dLLM fixed/adaptive：LLaDA load/generation/likelihood/curated likelihood smoke 完成，fixed-vs-adaptive benchmark 未完成
+dLLM fixed/adaptive：LLaDA load/generation/likelihood/fixed-adaptive smoke 完成，动态 adaptive benchmark 未完成
 diffusion/flow：toy surrogate 完成，真实模型未完成
 VLA/embodied：尚未进入真实任务
 ```
@@ -291,8 +337,8 @@ VLA/embodied：尚未进入真实任务
 
 短期优先级：
 
-1. 把 LLaDA likelihood smoke 扩展到 curated benchmark 全部样本。
-2. 接 DepCap / Fast-dLLM，实现真实 fixed block vs adaptive block 对比。
+1. 将当前 `adaptive_task_gated` 替换成 token-level uncertainty adaptive。
+2. 接 DepCap / Fast-dLLM，实现论文更接近的 adaptive block decoding。
 3. 将 LLaDA 结果与 Qwen block-level nCTC 分组关联，验证 high-dep 上 adaptive gain 是否更明显。
 4. 若结果稳定，再扩大到真实 GSM8K/HumanEval/HellaSwag/LAMBADA 子集。
 

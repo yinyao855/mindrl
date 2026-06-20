@@ -252,6 +252,7 @@ load-only: OK, CUDA memory allocated 14.93 GB
 generation: OK, "Tom has 5 apples."
 likelihood: OK, produced two small log-likelihood records
 curated likelihood: OK, produced ten benchmark-style log-likelihood records
+fixed/adaptive generation: OK, produced thirty generation records
 ```
 
 输出文件：
@@ -260,6 +261,7 @@ curated likelihood: OK, produced ten benchmark-style log-likelihood records
 outputs/llada_generate_smoke.json
 outputs/llada_likelihood_smoke.jsonl
 outputs/llada_benchmark_likelihood_smoke.jsonl
+outputs/llada_fixed_adaptive_smoke.jsonl
 ```
 
 curated likelihood 汇总：
@@ -270,8 +272,19 @@ low  count=4 mean_log_likelihood=-3.483023
 ```
 
 该 likelihood 是 raw sequence log-likelihood，high 组 completion 更长、更结构化，
-所以更负不能直接解释为“更差”或“依赖更强”。当前 LLaDA 结果说明真实模型路径已经打通，
-但还不是 fixed-vs-adaptive dLLM benchmark。
+所以更负不能直接解释为“更差”或“依赖更强”。
+
+fixed/adaptive generation smoke 汇总：
+
+```text
+adaptive_task_gated count=10 mean_f1=0.650485 mean_seconds=1.091122
+fixed_b16           count=10 mean_f1=0.637152 mean_seconds=1.090787
+fixed_b8            count=10 mean_f1=0.568667 mean_seconds=1.141657
+```
+
+`adaptive_task_gated` 是任务标签驱动的轻量 proxy：high-dep 用 block 8，
+low-dep 用 block 16。因此它验证了真实 LLaDA 模型中 block granularity 会影响输出，
+但还不是论文中基于 token uncertainty 的动态 adaptive decoding。
 
 ### 当前 paper-close 程度
 
@@ -280,7 +293,7 @@ low  count=4 mean_log_likelihood=-3.483023
 ```text
 工程支架：约 80% 完成
 语言侧 nCTC 实证：约 60% 完成
-dLLM fixed/adaptive 实证：LLaDA load/generate/likelihood smoke 完成，但 fixed-vs-adaptive benchmark 未完成
+dLLM fixed/adaptive 实证：LLaDA fixed/adaptive smoke 完成，但动态 adaptive benchmark 未完成
 diffusion/flow 实证：toy surrogate 完成，真实模型未完成
 完整 paper-close 复现：仍需 LLaDA/Dream 独立环境评测
 ```
