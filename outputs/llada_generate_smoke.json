@@ -1,0 +1,9 @@
+{
+  "model": "GSAI-ML/LLaDA-8B-Instruct",
+  "prompt": "Question: If Tom has 3 apples and buys 2 more, how many apples does he have? Answer briefly.",
+  "completion": "Tom has 5 apples.",
+  "steps": 16,
+  "gen_length": 16,
+  "block_length": 8,
+  "cuda_mem_allocated_gb": 14.94
+}

@@ -237,6 +237,42 @@ torch==2.7.1+cu128 或 LLaDA/DepCap 推荐版本
 
 然后在外部 LLaDA/DepCap repo 中运行 fixed/adaptive decoding benchmark。
 
+已创建独立环境：
+
+```text
+/gpfs/hulab/liyongqi/rl/external/LLaDA
+torch 2.7.1+cu128
+transformers 4.38.2
+```
+
+在该环境中，LLaDA-8B 已成功完成三个 smoke：
+
+```text
+load-only: OK, CUDA memory allocated 14.93 GB
+generation: OK, "Tom has 5 apples."
+likelihood: OK, produced two small log-likelihood records
+curated likelihood: OK, produced ten benchmark-style log-likelihood records
+```
+
+输出文件：
+
+```text
+outputs/llada_generate_smoke.json
+outputs/llada_likelihood_smoke.jsonl
+outputs/llada_benchmark_likelihood_smoke.jsonl
+```
+
+curated likelihood 汇总：
+
+```text
+high count=6 mean_log_likelihood=-12.390630
+low  count=4 mean_log_likelihood=-3.483023
+```
+
+该 likelihood 是 raw sequence log-likelihood，high 组 completion 更长、更结构化，
+所以更负不能直接解释为“更差”或“依赖更强”。当前 LLaDA 结果说明真实模型路径已经打通，
+但还不是 fixed-vs-adaptive dLLM benchmark。
+
 ### 当前 paper-close 程度
 
 更新后的判断：
@@ -244,7 +280,7 @@ torch==2.7.1+cu128 或 LLaDA/DepCap 推荐版本
 ```text
 工程支架：约 80% 完成
 语言侧 nCTC 实证：约 60% 完成
-dLLM fixed/adaptive 实证：preflight 完成，但真实评测未完成
+dLLM fixed/adaptive 实证：LLaDA load/generate/likelihood smoke 完成，但 fixed-vs-adaptive benchmark 未完成
 diffusion/flow 实证：toy surrogate 完成，真实模型未完成
 完整 paper-close 复现：仍需 LLaDA/Dream 独立环境评测
 ```

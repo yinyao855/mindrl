@@ -1,0 +1,2 @@
+{"answer": " 5 apples.", "dependency_group": "high", "log_likelihood": -8.064505100250244, "prompt": "Question: Tom has 3 apples and buys 2 more. How many apples does he have?\nAnswer:", "task": "gsm8k_smoke"}
+{"answer": " slices them.", "dependency_group": "low", "log_likelihood": -6.7149658203125, "prompt": "A chef places tomatoes on a cutting board. The chef then", "task": "hellaswag_smoke"}
