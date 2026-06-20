@@ -282,6 +282,58 @@ low  fixed_b8            count=4 mean_f1=0.339572
 - low 组中 adaptive 与 fixed_b16 等价，因此避免了 fixed_b8 在短 completion 上的退化。
 - 该 smoke 支持“按依赖强度选择 block granularity 有意义”这个方向，但还不能替代论文的动态 uncertainty-guided adaptive decoding。
 
+### LLaDA confidence-gated adaptive smoke
+
+进一步尝试了一个更接近论文方向的 adaptive proxy：先对全 mask response 做一次前向，
+计算 response 区域的 mean top-1 confidence；低 confidence 用 block 8，高 confidence 用 block 16。
+
+运行设置：
+
+```text
+model: GSAI-ML/LLaDA-8B-Instruct
+gen_length: 32
+steps: 32
+confidence_threshold: 0.42
+modes:
+  fixed_b8
+  fixed_b16
+  adaptive_confidence
+```
+
+输出文件：
+
+```text
+outputs/llada_confidence_adaptive_smoke.jsonl
+```
+
+汇总：
+
+```text
+mode_summary
+adaptive_confidence count=10 mean_f1=0.568667 mean_seconds=1.088860
+fixed_b16           count=10 mean_f1=0.637152 mean_seconds=1.088670
+fixed_b8            count=10 mean_f1=0.568667 mean_seconds=1.158554
+
+adaptive_confidence_diagnostics
+high mean_conf=0.344279 blocks=[8, 8, 8, 8, 8, 8]
+low  mean_conf=0.358154 blocks=[8, 8, 8, 16]
+```
+
+结论：这个 naive confidence probe 是一个负结果。它没有可靠地区分 high/low 任务，
+导致 low 组多数仍选择 block 8，整体表现退化到 fixed_b8 水平。
+
+离线 threshold sweep 显示，较低阈值 0.26-0.32 的 mean F1 为 0.637152，
+等价或接近大多数样本使用 block 16；阈值 0.40-0.44 则退化到 0.568667。
+这说明简单 mean top-1 confidence 不是足够好的 adaptive block probe。
+
+下一步应改用更细粒度的 token/block uncertainty，例如：
+
+- 每轮低置信 token 比例；
+- top1-top2 margin；
+- entropy；
+- 与 Qwen block-level nCTC 关联的 block risk；
+- DepCap / Fast-dLLM 中已有的 adaptive block 策略。
+
 重现命令：
 
 ```bash
@@ -337,7 +389,7 @@ VLA/embodied：尚未进入真实任务
 
 短期优先级：
 
-1. 将当前 `adaptive_task_gated` 替换成 token-level uncertainty adaptive。
+1. 用 entropy / margin / low-confidence-token-ratio 替代 naive mean top1 confidence。
 2. 接 DepCap / Fast-dLLM，实现论文更接近的 adaptive block decoding。
 3. 将 LLaDA 结果与 Qwen block-level nCTC 分组关联，验证 high-dep 上 adaptive gain 是否更明显。
 4. 若结果稳定，再扩大到真实 GSM8K/HumanEval/HellaSwag/LAMBADA 子集。

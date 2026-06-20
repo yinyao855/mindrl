@@ -253,6 +253,7 @@ generation: OK, "Tom has 5 apples."
 likelihood: OK, produced two small log-likelihood records
 curated likelihood: OK, produced ten benchmark-style log-likelihood records
 fixed/adaptive generation: OK, produced thirty generation records
+confidence-gated adaptive: ran, but naive mean top1 confidence did not improve over fixed baselines
 ```
 
 输出文件：
@@ -262,6 +263,7 @@ outputs/llada_generate_smoke.json
 outputs/llada_likelihood_smoke.jsonl
 outputs/llada_benchmark_likelihood_smoke.jsonl
 outputs/llada_fixed_adaptive_smoke.jsonl
+outputs/llada_confidence_adaptive_smoke.jsonl
 ```
 
 curated likelihood 汇总：
@@ -286,6 +288,28 @@ fixed_b8            count=10 mean_f1=0.568667 mean_seconds=1.141657
 low-dep 用 block 16。因此它验证了真实 LLaDA 模型中 block granularity 会影响输出，
 但还不是论文中基于 token uncertainty 的动态 adaptive decoding。
 
+confidence-gated adaptive 进一步尝试使用全 mask response 的 mean top1 confidence
+选择 block：
+
+```text
+threshold=0.42
+adaptive_confidence count=10 mean_f1=0.568667
+fixed_b16           count=10 mean_f1=0.637152
+fixed_b8            count=10 mean_f1=0.568667
+```
+
+诊断：
+
+```text
+high mean_conf=0.344279 blocks=[8, 8, 8, 8, 8, 8]
+low  mean_conf=0.358154 blocks=[8, 8, 8, 16]
+```
+
+这是一个负结果：naive mean top1 confidence 没有可靠地区分 high/low，
+导致 low 组多数仍使用小 block。离线 threshold sweep 显示，0.26-0.32
+附近的结果接近 fixed_b16，0.40-0.44 则退化到 fixed_b8。后续需要替换为
+entropy、top1-top2 margin、低置信 token 比例，或直接接 DepCap/Fast-dLLM 的策略。
+
 ### 当前 paper-close 程度
 
 更新后的判断：
@@ -293,7 +317,7 @@ low-dep 用 block 16。因此它验证了真实 LLaDA 模型中 block granularit
 ```text
 工程支架：约 80% 完成
 语言侧 nCTC 实证：约 60% 完成
-dLLM fixed/adaptive 实证：LLaDA fixed/adaptive smoke 完成，但动态 adaptive benchmark 未完成
+dLLM fixed/adaptive 实证：LLaDA fixed/adaptive smoke 完成；naive confidence adaptive 失败，需更强 uncertainty probe
 diffusion/flow 实证：toy surrogate 完成，真实模型未完成
 完整 paper-close 复现：仍需 LLaDA/Dream 独立环境评测
 ```
