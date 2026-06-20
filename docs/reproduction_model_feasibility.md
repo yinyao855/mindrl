@@ -2,12 +2,12 @@
 
 ## 当前机器环境
 
-本机环境：
+当前可用环境记录：
 
-- macOS arm64。
-- 初始没有 `torch` / `transformers`，已通过 `uv add torch transformers` 安装。
-- 没有可用 Ollama 本地模型。
-- Hugging Face 在线下载 `sshleifer/tiny-gpt2` 时无输出超过 120 秒，当前网络路径不稳定。
+- Linux + CUDA 机器可见 8 张 RTX 3090，但最近检查时显存基本被其他任务占满。
+- `torch` / `transformers` 已在 `uv` 环境中可用。
+- Hugging Face 在线下载路径可能不稳定；推荐优先使用 `--local-files-only` 检查本地 cache。
+- 第一阶段不抢 GPU，先跑 CPU/mock 或 CPU/cache pilot；GPU 空闲后再切到 CUDA。
 
 已验证：
 
@@ -15,6 +15,7 @@
 uv run python -m unittest discover -s tests -p "test_*.py"
 uv run python examples/minimal_discrete_repro.py
 uv run python examples/offline_random_ar_proxy_nctc.py
+uv run python examples/run_task_nctc_proxy.py --sample preset --max-examples 3 --device cpu --mock-scorer
 ```
 
 ## 模型候选排序
@@ -26,7 +27,7 @@ uv run python examples/offline_random_ar_proxy_nctc.py
 优点：
 
 - 权重很小。
-- 适合验证 `hf_ar_proxy_nctc.py` 的真实模型加载、tokenization、logprob scoring。
+- 适合验证 `hf_ar_proxy_nctc.py` 和 `run_task_nctc_proxy.py` 的真实模型加载、tokenization、logprob scoring。
 
 缺点：
 
@@ -42,7 +43,7 @@ uv run python examples/offline_random_ar_proxy_nctc.py
 优点：
 
 - 与论文 Qwen3-8B 同系列。
-- 0.6B 在 Mac CPU/MPS 上比 8B 可行得多。
+- 0.6B 在 CPU 小样本或单张 3090 上比 8B 可行得多。
 - 对 GSM8K / HumanEval 小样本更有意义。
 
 缺点：
@@ -59,7 +60,7 @@ uv run python examples/offline_random_ar_proxy_nctc.py
 优点：
 
 - 推理质量更好。
-- 仍可能在 Mac 上运行。
+- GPU 空闲时仍可能单卡运行。
 
 缺点：
 
@@ -80,7 +81,7 @@ uv run python examples/offline_random_ar_proxy_nctc.py
 
 - 公开主力模型多为 8B BF16。
 - 通常需要专用 repo、remote code、较大显存。
-- Mac 本地不适合作为第一轮。
+- 不适合作为第一轮 CPU pilot。
 
 结论：不适合作为本机第一轮；适合放到 GPU 机器上做 paper-close 或 extended reproduction。
 
@@ -107,15 +108,45 @@ uv run python examples/offline_random_ar_proxy_nctc.py
 已实现但未跑通下载：
 
 - `examples/hf_ar_proxy_nctc.py`
+- `examples/run_task_nctc_proxy.py`
+- `src/mindrl_repo/hf_scorer.py`
 
 推荐命令：
 
 ```bash
 uv run python examples/hf_ar_proxy_nctc.py --model sshleifer/tiny-gpt2
 uv run python examples/hf_ar_proxy_nctc.py --model Qwen/Qwen3-0.6B
+uv run python examples/run_task_nctc_proxy.py --model sshleifer/tiny-gpt2 --device cpu --sample preset --max-examples 3 --local-files-only
+MODEL=Qwen/Qwen3-0.6B MAX_EXAMPLES=20 bash examples/run_gpu_pilot.sh
 ```
 
 若已手动下载到 Hugging Face cache，可以加网络环境后直接运行。
+
+### D. Task-level nCTC proxy pilot
+
+已新增：
+
+- `src/mindrl_repo/benchmark_tasks.py`
+- `examples/run_task_nctc_proxy.py`
+- `examples/run_cpu_pilot.sh`
+- `examples/run_gpu_pilot.sh`
+
+CPU 小规模路径：
+
+```bash
+uv run python examples/run_task_nctc_proxy.py --sample preset --max-examples 3 --device cpu --mock-scorer
+bash examples/run_cpu_pilot.sh
+```
+
+`run_cpu_pilot.sh` 和 `run_gpu_pilot.sh` 会优先使用 `uv run python`；如果当前 shell 没有 `uv`，会回退到 `PYTHONPATH=src python3`。
+
+GPU 扩展路径：
+
+```bash
+MODEL=Qwen/Qwen3-0.6B MAX_EXAMPLES=20 bash examples/run_gpu_pilot.sh
+```
+
+`--mock-scorer` 只用于验证数据流、JSONL 输出和摘要聚合；真实趋势判断应使用 Hugging Face scorer。
 
 ## 与论文 protocol 的差距
 
@@ -142,9 +173,8 @@ marginal = sum_i log p_ref(x_i | C)
    - 然后 `Qwen/Qwen3-0.6B` 做小样本 AR scorer。
 
 2. 做小样本 nCTC proxy：
-   - GSM8K 50 条。
-   - HumanEval 50 条。
-   - HellaSwag 50 条。
+   - 先用内置 `gsm8k_smoke`、`humaneval_smoke`、`hellaswag_smoke`、`lambada_smoke` 验证流程。
+   - 再通过 JSONL 输入扩展到 GSM8K 50 条、HumanEval 50 条、HellaSwag 50 条。
    - 比较 high-dep vs low-dep 的 dependency gap。
 
 3. 如果要更接近论文：
