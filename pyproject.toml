@@ -7,7 +7,10 @@ authors = [
     { name = "yy", email = "1311095683@qq.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "torch>=2.12.1",
+    "transformers>=5.12.1",
+]
 
 [project.scripts]
 mindrl-repo = "mindrl_repo:main"
