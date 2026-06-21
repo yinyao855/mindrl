@@ -321,3 +321,89 @@ dLLM fixed/adaptive 实证：LLaDA fixed/adaptive smoke 完成；naive confidenc
 diffusion/flow 实证：toy surrogate 完成，真实模型未完成
 完整 paper-close 复现：仍需 LLaDA/Dream 独立环境评测
 ```
+
+## 2026-06-22 动态 adaptive 解码准备
+
+已在外部 LLaDA 环境中新增 dynamic adaptive 脚本：
+
+```text
+/gpfs/hulab/liyongqi/rl/external/LLaDA/scripts/mindrl_llada_dynamic_adaptive.py
+```
+
+该脚本实现了更接近论文 Appendix G 的 decoding loop：
+
+```text
+1. 初始化固定长度 response canvas。
+2. 每轮对所有未提交 mask 位置前向。
+3. 计算 token-level uncertainty：
+   - top1: 1 - p_top1
+   - margin: 1 - (p_top1 - p_top2)
+   - entropy: normalized entropy
+4. 用 B_t = floor(alpha / (mean_uncertainty + eps)) 动态选择 block size。
+5. 用距离约束 gap=4 从高置信候选里选择提交位置。
+6. 对比 fixed_b8_dynamic_loop、fixed_b16_dynamic_loop、adaptive_dynamic。
+```
+
+已完成语法检查：
+
+```text
+.venv/bin/python -m py_compile scripts/mindrl_llada_dynamic_adaptive.py
+```
+
+尚未运行的原因：
+
+```text
+2026-06-22 01:58 GPU4-7 均被 VLLM::Worker 占用约 23GB 显存；
+LLaDA-8B 需要约 15GB 显存，当前无法安全加载。
+```
+
+GPU 空闲后建议运行：
+
+```bash
+cd /gpfs/hulab/liyongqi/rl/external/LLaDA
+
+CUDA_VISIBLE_DEVICES=6 \
+HF_HOME="/gpfs/hulab/liyongqi/.cache/huggingface" \
+HF_HUB_DISABLE_XET=1 \
+http_proxy="http://10.11.0.51:7890" \
+https_proxy="http://10.11.0.51:7890" \
+HTTP_PROXY="http://10.11.0.51:7890" \
+HTTPS_PROXY="http://10.11.0.51:7890" \
+.venv/bin/python scripts/mindrl_llada_dynamic_adaptive.py \
+  --max-examples 10 \
+  --gen-length 32 \
+  --max-steps 16 \
+  --uncertainty top1 \
+  --alpha 4.0 \
+  --gap 4
+```
+
+如果 top1 结果不理想，下一组应跑：
+
+```bash
+.venv/bin/python scripts/mindrl_llada_dynamic_adaptive.py \
+  --max-examples 10 \
+  --gen-length 32 \
+  --max-steps 16 \
+  --uncertainty margin \
+  --alpha 4.0 \
+  --gap 4
+
+.venv/bin/python scripts/mindrl_llada_dynamic_adaptive.py \
+  --max-examples 10 \
+  --gen-length 32 \
+  --max-steps 16 \
+  --uncertainty entropy \
+  --alpha 4.0 \
+  --gap 4
+```
+
+预期输出：
+
+```text
+outputs/llada_dynamic_adaptive_smoke.jsonl
+```
+
+该实验是下一步最关键的 dLLM 复现任务：它会把当前的
+task-gated / naive confidence-gated adaptive，推进到真正逐步更新的
+token-level uncertainty adaptive decoding。

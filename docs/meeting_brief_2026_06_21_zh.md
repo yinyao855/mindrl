@@ -334,6 +334,57 @@ low  mean_conf=0.358154 blocks=[8, 8, 8, 16]
 - 与 Qwen block-level nCTC 关联的 block risk；
 - DepCap / Fast-dLLM 中已有的 adaptive block 策略。
 
+### 2026-06-22 动态 adaptive 脚本准备情况
+
+已新增脚本：
+
+```text
+/gpfs/hulab/liyongqi/rl/external/LLaDA/scripts/mindrl_llada_dynamic_adaptive.py
+```
+
+该脚本实现了逐步更新版 adaptive decoding：
+
+```text
+每轮 forward
+  -> 对所有 uncommitted mask positions 计算 uncertainty
+  -> B_t = floor(alpha / (mean_uncertainty + eps))
+  -> clip 到 [B_min, B_max]
+  -> 用 gap=4 的距离约束选择高置信位置提交
+```
+
+支持三种 uncertainty：
+
+```text
+top1   = 1 - p_top1
+margin = 1 - (p_top1 - p_top2)
+entropy = normalized entropy
+```
+
+已完成脚本语法检查，但尚未运行，原因是当前 GPU4-7 被 `VLLM::Worker`
+占用约 23GB 显存，LLaDA-8B 无法安全加载。
+
+GPU 空闲后应优先运行：
+
+```bash
+cd /gpfs/hulab/liyongqi/rl/external/LLaDA
+CUDA_VISIBLE_DEVICES=6 \
+HF_HOME="/gpfs/hulab/liyongqi/.cache/huggingface" \
+HF_HUB_DISABLE_XET=1 \
+http_proxy="http://10.11.0.51:7890" \
+https_proxy="http://10.11.0.51:7890" \
+HTTP_PROXY="http://10.11.0.51:7890" \
+HTTPS_PROXY="http://10.11.0.51:7890" \
+.venv/bin/python scripts/mindrl_llada_dynamic_adaptive.py \
+  --max-examples 10 \
+  --gen-length 32 \
+  --max-steps 16 \
+  --uncertainty top1 \
+  --alpha 4.0 \
+  --gap 4
+```
+
+这一步是从 smoke 走向论文 Appendix G dynamic adaptive decoding 的关键实验。
+
 重现命令：
 
 ```bash
@@ -389,10 +440,11 @@ VLA/embodied：尚未进入真实任务
 
 短期优先级：
 
-1. 用 entropy / margin / low-confidence-token-ratio 替代 naive mean top1 confidence。
-2. 接 DepCap / Fast-dLLM，实现论文更接近的 adaptive block decoding。
-3. 将 LLaDA 结果与 Qwen block-level nCTC 分组关联，验证 high-dep 上 adaptive gain 是否更明显。
-4. 若结果稳定，再扩大到真实 GSM8K/HumanEval/HellaSwag/LAMBADA 子集。
+1. GPU 空闲后运行 `mindrl_llada_dynamic_adaptive.py` 的 top1/margin/entropy 三组。
+2. 根据结果做 alpha grid / compute-neutral calibration。
+3. 接 DepCap / Fast-dLLM，实现论文更接近的 adaptive block decoding。
+4. 将 LLaDA 结果与 Qwen block-level nCTC 分组关联，验证 high-dep 上 adaptive gain 是否更明显。
+5. 若结果稳定，再扩大到真实 GSM8K/HumanEval/HellaSwag/LAMBADA 子集。
 
 建议汇报时强调：
 
