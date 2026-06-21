@@ -385,6 +385,72 @@ HTTPS_PROXY="http://10.11.0.51:7890" \
 
 这一步是从 smoke 走向论文 Appendix G dynamic adaptive decoding 的关键实验。
 
+### 后台 GPU watcher
+
+已启动后台任务：
+
+```text
+/gpfs/hulab/liyongqi/rl/external/LLaDA/scripts/wait_and_run_dynamic_adaptive.sh
+```
+
+它会每 300 秒检查 GPU4-7，若发现空闲显存超过 17GB，会自动运行：
+
+```text
+top1 dynamic adaptive
+margin dynamic adaptive
+entropy dynamic adaptive
+```
+
+预期输出：
+
+```text
+outputs/llada_dynamic_adaptive_top1.jsonl
+outputs/llada_dynamic_adaptive_margin.jsonl
+outputs/llada_dynamic_adaptive_entropy.jsonl
+outputs/logs/
+```
+
+### Flow/diffusion 与 VLA 接口代码
+
+已新增 flow/diffusion branch adapter：
+
+```text
+src/mindrl_repo/flow_diffusion_interface.py
+examples/run_flow_diffusion_interface_pilot.py
+tests/test_flow_diffusion_interface.py
+```
+
+当前轻量结果：
+
+```text
+low_drift:
+  score_routing risk_adjusted_reward = 0.3889
+  barrier_gated risk_adjusted_reward = 0.8428
+
+high_drift:
+  score_routing risk_adjusted_reward = -0.2652
+  barrier_gated risk_adjusted_reward = -0.1185
+```
+
+已新增 VLA / AR+flow interface：
+
+```text
+src/mindrl_repo/vla_interface.py
+examples/run_vla_interface_pilot.py
+tests/test_vla_interface.py
+```
+
+当前轻量结果：
+
+```text
+score_routing_only risk_adjusted_score = 0.2126
+barrier_gated      risk_adjusted_score = 0.3459
+```
+
+这部分仍是 interface-level pilot，不是 EO1/LIBERO 或 FLUX.1-dev 真实复现；
+但它已经把论文中的 flow drift、surrogate variance、semantic staleness、
+world uncertainty 统一成可测试的 controller 输入。
+
 重现命令：
 
 ```bash
@@ -440,11 +506,12 @@ VLA/embodied：尚未进入真实任务
 
 短期优先级：
 
-1. GPU 空闲后运行 `mindrl_llada_dynamic_adaptive.py` 的 top1/margin/entropy 三组。
+1. 等后台 watcher 产出 dynamic adaptive top1/margin/entropy 三组结果。
 2. 根据结果做 alpha grid / compute-neutral calibration。
 3. 接 DepCap / Fast-dLLM，实现论文更接近的 adaptive block decoding。
 4. 将 LLaDA 结果与 Qwen block-level nCTC 分组关联，验证 high-dep 上 adaptive gain 是否更明显。
-5. 若结果稳定，再扩大到真实 GSM8K/HumanEval/HellaSwag/LAMBADA 子集。
+5. flow/VLA 侧接真实 diffusers / UniRL / LIBERO 数据源。
+6. 若语言侧结果稳定，再扩大到真实 GSM8K/HumanEval/HellaSwag/LAMBADA 子集。
 
 建议汇报时强调：
 

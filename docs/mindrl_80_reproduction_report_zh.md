@@ -407,3 +407,110 @@ outputs/llada_dynamic_adaptive_smoke.jsonl
 该实验是下一步最关键的 dLLM 复现任务：它会把当前的
 task-gated / naive confidence-gated adaptive，推进到真正逐步更新的
 token-level uncertainty adaptive decoding。
+
+## 2026-06-22 后台 GPU watcher 与 flow/VLA 实现
+
+### GPU watcher
+
+已在外部 LLaDA 环境中新增并启动后台 watcher：
+
+```text
+/gpfs/hulab/liyongqi/rl/external/LLaDA/scripts/wait_and_run_dynamic_adaptive.sh
+```
+
+行为：
+
+```text
+1. 每 300 秒检查 GPU4-7。
+2. 若任一 GPU 空闲显存 >= 17000 MiB，则选择该 GPU。
+3. 依次运行 top1 / margin / entropy 三组 dynamic adaptive decoding。
+4. 输出到：
+   outputs/llada_dynamic_adaptive_top1.jsonl
+   outputs/llada_dynamic_adaptive_margin.jsonl
+   outputs/llada_dynamic_adaptive_entropy.jsonl
+5. 日志输出到 outputs/logs/。
+```
+
+启动时 GPU 仍被 `VLLM::Worker` 占用，watcher 已进入等待循环。
+
+### Flow/diffusion interface
+
+新增模块：
+
+```text
+src/mindrl_repo/flow_diffusion_interface.py
+examples/run_flow_diffusion_interface_pilot.py
+tests/test_flow_diffusion_interface.py
+```
+
+实现内容：
+
+```text
+FlowDiffusionTrace
+  -> summarize_flow_trace
+  -> flow_barrier_profile
+  -> MindRLController decision
+  -> risk_adjusted_reward
+```
+
+轻量示例结果：
+
+```text
+trace       strategy        adapter                  risk_adjusted_reward
+low_drift   score_routing   score_routing_only        0.3889
+low_drift   barrier_gated   anchored_flow_surrogate   0.8428
+high_drift  score_routing   score_routing_only       -0.2652
+high_drift  barrier_gated   anchored_flow_surrogate  -0.1185
+```
+
+解释：在高 drift / 高 surrogate variance trace 上，barrier-gated controller
+通过增强 anchor、收紧 clip、降低 branch weight 改善 risk-adjusted reward。
+
+### VLA / AR+flow interface
+
+新增模块：
+
+```text
+src/mindrl_repo/vla_interface.py
+examples/run_vla_interface_pilot.py
+tests/test_vla_interface.py
+```
+
+实现内容：
+
+```text
+ARBranchTrace + FlowDiffusionTrace + semantic_staleness + world_uncertainty
+  -> AR exact_ratio decision
+  -> flow anchored surrogate decision
+  -> semantic_refresh_budget
+  -> risk_adjusted_score
+```
+
+轻量示例结果：
+
+```text
+strategy             ar_adapter   flow_adapter              semantic_refresh  risk_adjusted_score
+score_routing_only   exact_ratio  score_routing_only        0.000             0.2126
+barrier_gated        exact_ratio  anchored_flow_surrogate   0.350             0.3459
+```
+
+解释：这还不是 LIBERO/EO1 真实验，但已经把论文中的
+AR exact credit、flow anchored surrogate、semantic/world uncertainty barrier
+组织成可测试接口。
+
+### 新增验证
+
+```text
+uv run python -m unittest tests.test_flow_diffusion_interface tests.test_vla_interface
+Ran 5 tests
+OK
+```
+
+下一步：
+
+```text
+1. 等 GPU watcher 产出 dynamic adaptive top1/margin/entropy 结果。
+2. 将 dynamic adaptive 结果与当前 fixed/adaptive smoke 对比。
+3. 若 margin/entropy 有改善，再做 alpha grid 与 compute-neutral calibration。
+4. flow/VLA 侧继续接真实 diffusers / UniRL / LIBERO 数据源。
+```
