@@ -385,6 +385,61 @@ HTTPS_PROXY="http://10.11.0.51:7890" \
 
 这一步是从 smoke 走向论文 Appendix G dynamic adaptive decoding 的关键实验。
 
+### 2026-06-23 dynamic adaptive 运行结果
+
+后台 watcher 已完成 top1 / margin / entropy 三组 dynamic adaptive。
+
+输出文件：
+
+```text
+outputs/llada_dynamic_adaptive_top1.jsonl
+outputs/llada_dynamic_adaptive_margin.jsonl
+outputs/llada_dynamic_adaptive_entropy.jsonl
+```
+
+整体结果：
+
+```text
+top1:
+  adaptive_dynamic mean_f1=0.506464
+  fixed_b16         mean_f1=0.440755
+  fixed_b8          mean_f1=0.440755
+
+margin:
+  adaptive_dynamic mean_f1=0.506464
+  fixed_b16         mean_f1=0.391580
+  fixed_b8          mean_f1=0.391580
+
+entropy:
+  adaptive_dynamic mean_f1=0.418716
+  fixed_b16         mean_f1=0.418716
+  fixed_b8          mean_f1=0.418716
+```
+
+按组结果：
+
+```text
+top1:
+  high adaptive=0.526647 fixed=0.530426
+  low  adaptive=0.476190 fixed=0.306250
+
+margin:
+  high adaptive=0.526647 fixed=0.519300
+  low  adaptive=0.476190 fixed=0.200000
+
+entropy:
+  high adaptive=0.527027 fixed=0.527027
+  low  adaptive=0.256250 fixed=0.256250
+```
+
+结论：
+
+- dynamic token-level adaptive 路径已经跑通。
+- top1 / margin 比 entropy 更有希望。
+- 当前提升主要来自 low 组，high 组与 fixed 接近。
+- 因为当前是 32-token canvas 且 gap=4，fixed_b8/fixed_b16 的实际提交 block size 很接近；还不是论文的 compute-neutral 128-token setting。
+- 下一步应做 alpha grid 和 compute-neutral calibration。
+
 ### 后台 GPU watcher
 
 已启动后台任务：
@@ -506,8 +561,8 @@ VLA/embodied：尚未进入真实任务
 
 短期优先级：
 
-1. 等后台 watcher 产出 dynamic adaptive top1/margin/entropy 三组结果。
-2. 根据结果做 alpha grid / compute-neutral calibration。
+1. 基于 top1 / margin 做 alpha grid / compute-neutral calibration。
+2. 扩大到 128-token canvas，复刻论文 fixed-B=8 vs adaptive 设置。
 3. 接 DepCap / Fast-dLLM，实现论文更接近的 adaptive block decoding。
 4. 将 LLaDA 结果与 Qwen block-level nCTC 分组关联，验证 high-dep 上 adaptive gain 是否更明显。
 5. flow/VLA 侧接真实 diffusers / UniRL / LIBERO 数据源。

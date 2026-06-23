@@ -408,6 +408,84 @@ outputs/llada_dynamic_adaptive_smoke.jsonl
 task-gated / naive confidence-gated adaptive，推进到真正逐步更新的
 token-level uncertainty adaptive decoding。
 
+### 2026-06-23 dynamic adaptive 运行结果
+
+后台 watcher 已在 GPU0 上完成三组 uncertainty：
+
+```text
+outputs/llada_dynamic_adaptive_top1.jsonl
+outputs/llada_dynamic_adaptive_margin.jsonl
+outputs/llada_dynamic_adaptive_entropy.jsonl
+outputs/logs/llada_dynamic_adaptive_top1.log
+outputs/logs/llada_dynamic_adaptive_margin.log
+outputs/logs/llada_dynamic_adaptive_entropy.log
+```
+
+运行设置：
+
+```text
+model: GSAI-ML/LLaDA-8B-Instruct
+max_examples: 10
+gen_length: 32
+max_steps: 16
+alpha: 4.0
+gap: 4
+modes: fixed_b8_dynamic_loop, fixed_b16_dynamic_loop, adaptive_dynamic
+```
+
+整体结果：
+
+```text
+top1:
+  adaptive_dynamic mean_f1=0.506464 mean_seconds=0.209433 avg_block=5.3181 actual_steps=6.1
+  fixed_b16         mean_f1=0.440755 mean_seconds=0.198240 avg_block=5.5771 actual_steps=5.8
+  fixed_b8          mean_f1=0.440755 mean_seconds=0.511259 avg_block=5.5771 actual_steps=5.8
+
+margin:
+  adaptive_dynamic mean_f1=0.506464 mean_seconds=0.212778 avg_block=5.2114 actual_steps=6.2
+  fixed_b16         mean_f1=0.391580 mean_seconds=0.200037 avg_block=5.5467 actual_steps=5.8
+  fixed_b8          mean_f1=0.391580 mean_seconds=0.256558 avg_block=5.5467 actual_steps=5.8
+
+entropy:
+  adaptive_dynamic mean_f1=0.418716 mean_seconds=0.195341 avg_block=5.6533 actual_steps=5.7
+  fixed_b16         mean_f1=0.418716 mean_seconds=0.195697 avg_block=5.6533 actual_steps=5.7
+  fixed_b8          mean_f1=0.418716 mean_seconds=0.474718 avg_block=5.6533 actual_steps=5.7
+```
+
+按依赖组：
+
+```text
+top1:
+  high adaptive=0.526647 fixed=0.530426
+  low  adaptive=0.476190 fixed=0.306250
+
+margin:
+  high adaptive=0.526647 fixed=0.519300
+  low  adaptive=0.476190 fixed=0.200000
+
+entropy:
+  high adaptive=0.527027 fixed=0.527027
+  low  adaptive=0.256250 fixed=0.256250
+```
+
+解释：
+
+```text
+1. top1 / margin dynamic adaptive 在 overall mean F1 上优于当前 dynamic-loop fixed baselines。
+2. 改善主要来自 low 组；high 组与 fixed 接近。
+3. entropy 在当前归一化和 alpha 下没有产生有效差异。
+4. fixed_b8 与 fixed_b16 在该 32-token canvas + gap=4 设置下实际 average block size 很接近，
+   因此这个结果还不是论文表格中的 compute-neutral fixed-B=8 vs adaptive 对比。
+```
+
+当前判断：
+
+```text
+dynamic token-level adaptive 路径已经跑通；
+top1/margin 是当前最有希望继续扩展的 uncertainty proxy；
+下一步需要做 alpha grid、128-token canvas、compute-neutral calibration 和 official metric。
+```
+
 ## 2026-06-22 后台 GPU watcher 与 flow/VLA 实现
 
 ### GPU watcher
