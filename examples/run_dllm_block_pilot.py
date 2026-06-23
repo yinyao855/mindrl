@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 
-from mindrl_repo.benchmark_tasks import load_jsonl_samples, load_preset_samples
-from mindrl_repo.dllm_decoding import (
+from mindrl.benchmark_tasks import load_jsonl_samples, load_preset_samples
+from mindrl.dllm_decoding import (
     MockDLMDecoder,
     compare_fixed_and_adaptive,
     dllm_reproduction_command,

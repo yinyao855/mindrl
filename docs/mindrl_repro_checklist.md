@@ -82,8 +82,8 @@ paper-close 设置需要把 AR checkpoint 转成 dLLM，并在
 
 代码位于：
 
-- `src/mindrl_repo/discrete_interface.py`
-- `src/mindrl_repo/synthetic_barriers.py`
+- `src/mindrl/discrete_interface.py`
+- `src/mindrl/synthetic_barriers.py`
 - `tests/`
 
 验证：

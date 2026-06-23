@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mindrl_repo.flow_diffusion_interface import FlowDiffusionTrace
-from mindrl_repo.vla_interface import (
+from mindrl.flow_diffusion_interface import FlowDiffusionTrace
+from mindrl.vla_interface import (
     ARBranchTrace,
     VLABranchTrace,
     compare_vla_strategies,

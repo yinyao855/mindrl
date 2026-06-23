@@ -1,7 +1,7 @@
 [project]
-name = "mindrl-repo"
+name = "mindrl"
 version = "0.1.0"
-description = "Add your description here"
+description = "Transparent RL infrastructure primitives for AR LLM and diffusion research pilots"
 readme = "README.md"
 authors = [
     { name = "yy", email = "1311095683@qq.com" }
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mindrl-repo = "mindrl_repo:main"
+mindrl = "mindrl:main"
 
 [tool.uv]
 cache-dir = "/gpfs/hulab/liyongqi/.cache/uv"

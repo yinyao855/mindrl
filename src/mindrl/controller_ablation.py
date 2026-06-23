@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from mindrl_repo.interface_controller import (
+from mindrl.interface_controller import (
     AdapterDecision,
     BarrierProfile,
     MindRLController,

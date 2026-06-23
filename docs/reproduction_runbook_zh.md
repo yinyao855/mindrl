@@ -46,7 +46,7 @@ python3 -m pip install --user uv
 然后进入项目目录同步环境：
 
 ```bash
-cd /gpfs/hulab/liyongqi/rl/mindrl_repo
+cd /gpfs/hulab/liyongqi/rl/mindrl
 PATH="/home/liyongqi/.local/bin:$PATH" \
 http_proxy="http://10.11.0.51:7890" \
 https_proxy="http://10.11.0.51:7890" \

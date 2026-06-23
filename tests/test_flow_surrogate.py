@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.flow_surrogate import (
+from mindrl.flow_surrogate import (
     FlowSurrogateSetting,
     evaluate_flow_surrogate,
     sweep_anchor_strengths,

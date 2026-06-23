@@ -109,7 +109,7 @@ uv run python examples/run_task_nctc_proxy.py --sample preset --max-examples 3 -
 
 - `examples/hf_ar_proxy_nctc.py`
 - `examples/run_task_nctc_proxy.py`
-- `src/mindrl_repo/hf_scorer.py`
+- `src/mindrl/hf_scorer.py`
 
 推荐命令：
 
@@ -126,7 +126,7 @@ MODEL=Qwen/Qwen3-0.6B MAX_EXAMPLES=20 bash examples/run_gpu_pilot.sh
 
 已新增：
 
-- `src/mindrl_repo/benchmark_tasks.py`
+- `src/mindrl/benchmark_tasks.py`
 - `examples/run_task_nctc_proxy.py`
 - `examples/run_cpu_pilot.sh`
 - `examples/run_gpu_pilot.sh`

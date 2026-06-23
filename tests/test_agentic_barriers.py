@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.agentic_barriers import AgentStep, summarize_trace_barriers
+from mindrl.agentic_barriers import AgentStep, summarize_trace_barriers
 
 
 class AgenticBarriersTest(unittest.TestCase):

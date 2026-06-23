@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.ar_proxy_nctc import (
+from mindrl.ar_proxy_nctc import (
     bootstrap_mean_ci,
     build_block_nctc_record,
     build_proxy_record,

@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from mindrl_repo.discrete_interface import (
+from mindrl.discrete_interface import (
     adaptive_block_size,
     estimate_nctc_from_logprobs,
     sample_distance_controlled_block,

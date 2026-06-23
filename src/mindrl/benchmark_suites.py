@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable
 from pathlib import Path
 
-from mindrl_repo.benchmark_tasks import TaskSample
+from mindrl.benchmark_tasks import TaskSample
 
 
 BENCHMARK_SAMPLES: tuple[TaskSample, ...] = (

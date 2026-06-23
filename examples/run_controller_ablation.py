@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mindrl_repo.controller_ablation import BranchScenario, run_controller_ablation
-from mindrl_repo.interface_controller import BarrierProfile, PolicySpec
+from mindrl.controller_ablation import BranchScenario, run_controller_ablation
+from mindrl.interface_controller import BarrierProfile, PolicySpec
 
 
 def main() -> None:

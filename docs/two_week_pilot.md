@@ -13,8 +13,8 @@
 
 已完成基础代码：
 
-- `src/mindrl_repo/discrete_interface.py`
-- `src/mindrl_repo/synthetic_barriers.py`
+- `src/mindrl/discrete_interface.py`
+- `src/mindrl/synthetic_barriers.py`
 - `examples/minimal_discrete_repro.py`
 
 验证：
@@ -67,7 +67,7 @@ uv run python examples/minimal_discrete_repro.py
 
 已完成基础 barrier summary：
 
-- `src/mindrl_repo/agentic_barriers.py`
+- `src/mindrl/agentic_barriers.py`
 
 构造三类 toy traces：
 

@@ -12,7 +12,7 @@ import argparse
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from mindrl_repo.ar_proxy_nctc import pair_normalized_dependency_gap
+from mindrl.ar_proxy_nctc import pair_normalized_dependency_gap
 
 
 def main() -> None:

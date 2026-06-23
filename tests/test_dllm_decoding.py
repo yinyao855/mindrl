@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.dllm_decoding import (
+from mindrl.dllm_decoding import (
     MockDLMDecoder,
     compare_fixed_and_adaptive,
     dllm_reproduction_command,

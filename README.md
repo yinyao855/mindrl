@@ -1,18 +1,45 @@
-# mindrl-repo
+# mindrl
 
-`mindrl-repo` is a small uv project for reproducing the low-cost parts of
-`Reward Is Not a Universal Interface for Generative Reinforcement Learning` and
-testing a possible extension toward interface-native agentic RL.
+`mindrl` is a transparent RL infrastructure pilot for AR LLM and diffusion
+research. It grew out of the MINDRL reproduction code, but the new repository is
+organized around framework primitives: rollout batches, rewards, teacher
+signals, branch-native objectives, reports, and a lightweight
+`PolicySpec -> BarrierProfile -> AdapterDecision` interface controller.
 
-## What Is Implemented
+The first MVP intentionally avoids rebuilding a verl/OpenRLHF-style distributed
+runtime. It focuses on code that researchers can read, test, and modify before
+plugging into TRL, verl, OpenRLHF, or a diffusion training stack.
 
-- Discrete-side nCTC utilities:
-  - distance-controlled block sampling
-  - pair-normalized nCTC estimation from logprobs
-  - inverse uncertainty adaptive block scheduling
-- Synthetic CTC barrier checks for factorized parallel blocks.
-- A lightweight `PolicySpec -> BarrierProfile -> AdapterDecision` controller.
-- Toy agentic trace barrier metrics for tool/delegation/stop failures.
+## MVP Features
+
+- Core framework objects:
+  - `RolloutSample` / `RolloutBatch`
+  - `RewardOutput`
+  - `TeacherSignal`
+  - `AlgorithmConfig` / `ObjectiveOutput` / `TrainReport`
+- AR LLM objectives:
+  - exact-match verifiable reward
+  - GRPO-style group-relative objective
+  - OPD-style token-level teacher/student matching
+  - REINFORCE++/OPO-like batch-baseline objective
+- Diffusion objectives:
+  - DDPO-style denoising trajectory objective
+  - compressibility reward
+  - CLIP-like prompt/caption alignment proxy
+  - controller-backed diffusion run summary
+- Smoke benchmark/report path:
+  - AR GRPO smoke
+  - diffusion DDPO smoke
+  - JSONL + Markdown report output
+
+## Run the MVP Smoke
+
+```bash
+uv run python examples/run_mvp_smoke.py
+uv run mindrl
+```
+
+Outputs are written to `outputs/mvp_smoke/`.
 
 ## Run
 
@@ -50,7 +77,7 @@ MODEL=Qwen/Qwen3-0.6B MAX_EXAMPLES=20 bash examples/run_gpu_pilot.sh
 ## Repository Layout
 
 ```text
-src/mindrl_repo/
+src/mindrl/
   discrete_interface.py      # nCTC and adaptive block utilities
   synthetic_barriers.py      # finite-distribution CTC checks
   ar_proxy_nctc.py           # causal-LM dependency-gap proxy

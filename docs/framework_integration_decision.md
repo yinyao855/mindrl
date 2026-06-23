@@ -46,7 +46,7 @@ RolloutTrack + rewards + advantages
 
 当前轻量实现位于：
 
-- `src/mindrl_repo/interface_controller.py`
+- `src/mindrl/interface_controller.py`
 
 核心类型：
 

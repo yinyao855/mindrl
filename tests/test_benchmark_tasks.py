@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mindrl_repo.benchmark_tasks import TaskSample, load_jsonl_samples, load_preset_samples
+from mindrl.benchmark_tasks import TaskSample, load_jsonl_samples, load_preset_samples
 
 
 class BenchmarkTasksTest(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mindrl_repo.flow_surrogate import FlowSurrogateSetting, evaluate_flow_surrogate
+from mindrl.flow_surrogate import FlowSurrogateSetting, evaluate_flow_surrogate
 
 
 def main() -> None:

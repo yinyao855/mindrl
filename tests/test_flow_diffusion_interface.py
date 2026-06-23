@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.flow_diffusion_interface import (
+from mindrl.flow_diffusion_interface import (
     FlowDiffusionTrace,
     compare_flow_strategies,
     evaluate_flow_adapter,

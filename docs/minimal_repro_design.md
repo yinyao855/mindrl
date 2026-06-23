@@ -11,8 +11,8 @@
 
 代码：
 
-- `src/mindrl_repo/discrete_interface.py`
-- `src/mindrl_repo/synthetic_barriers.py`
+- `src/mindrl/discrete_interface.py`
+- `src/mindrl/synthetic_barriers.py`
 - `examples/minimal_discrete_repro.py`
 - `tests/test_discrete_interface.py`
 - `tests/test_synthetic_barriers.py`

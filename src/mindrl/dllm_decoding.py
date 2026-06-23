@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from mindrl_repo.discrete_interface import adaptive_block_size
+from mindrl.discrete_interface import adaptive_block_size
 
 DecodeMode = Literal["fixed", "adaptive"]
 

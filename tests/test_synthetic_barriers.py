@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.synthetic_barriers import (
+from mindrl.synthetic_barriers import (
     binary_pair_distribution,
     total_correlation,
     within_block_barrier,

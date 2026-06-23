@@ -9,7 +9,7 @@ from __future__ import annotations
 import torch
 from transformers import GPT2Config, GPT2LMHeadModel
 
-from mindrl_repo.ar_proxy_nctc import pair_normalized_dependency_gap
+from mindrl.ar_proxy_nctc import pair_normalized_dependency_gap
 
 
 def main() -> None:

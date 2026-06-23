@@ -1,6 +1,6 @@
 import unittest
 
-from mindrl_repo.interface_controller import (
+from mindrl.interface_controller import (
     BarrierProfile,
     MindRLController,
     PolicySpec,

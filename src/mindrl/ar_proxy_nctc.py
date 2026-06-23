@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Sequence
 
-from mindrl_repo.discrete_interface import estimate_nctc_from_logprobs
+from mindrl.discrete_interface import estimate_nctc_from_logprobs
 
 
 @dataclass(frozen=True)

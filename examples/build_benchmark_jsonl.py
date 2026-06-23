@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from mindrl_repo.benchmark_suites import (
+from mindrl.benchmark_suites import (
     load_curated_benchmark_samples,
     write_samples_jsonl,
 )

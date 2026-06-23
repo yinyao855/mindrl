@@ -29,7 +29,7 @@
 ### 1. 基础单测
 
 ```bash
-cd /gpfs/hulab/liyongqi/rl/mindrl_repo
+cd /gpfs/hulab/liyongqi/rl/mindrl
 PATH="/home/liyongqi/.local/bin:$PATH" \
 uv run python -m unittest discover -s tests -p "test_*.py"
 ```
@@ -516,7 +516,7 @@ top1/margin 是当前最有希望继续扩展的 uncertainty proxy；
 新增模块：
 
 ```text
-src/mindrl_repo/flow_diffusion_interface.py
+src/mindrl/flow_diffusion_interface.py
 examples/run_flow_diffusion_interface_pilot.py
 tests/test_flow_diffusion_interface.py
 ```
@@ -549,7 +549,7 @@ high_drift  barrier_gated   anchored_flow_surrogate  -0.1185
 新增模块：
 
 ```text
-src/mindrl_repo/vla_interface.py
+src/mindrl/vla_interface.py
 examples/run_vla_interface_pilot.py
 tests/test_vla_interface.py
 ```

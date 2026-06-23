@@ -6,7 +6,7 @@ raises total correlation, and refining a parallel block lowers the measurable
 factorization barrier.
 """
 
-from mindrl_repo.synthetic_barriers import (
+from mindrl.synthetic_barriers import (
     binary_pair_distribution,
     total_correlation,
     within_block_barrier,

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mindrl_repo.flow_diffusion_interface import (
+from mindrl.flow_diffusion_interface import (
     FlowDiffusionTrace,
     evaluate_flow_adapter,
     summarize_flow_trace,
 )
-from mindrl_repo.interface_controller import (
+from mindrl.interface_controller import (
     AdapterDecision,
     BarrierProfile,
     MindRLController,

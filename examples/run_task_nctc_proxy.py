@@ -11,7 +11,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from mindrl_repo.ar_proxy_nctc import (
+from mindrl.ar_proxy_nctc import (
     BlockNCTCRecord,
     NCTCProxyRecord,
     build_block_nctc_record,
@@ -19,7 +19,7 @@ from mindrl_repo.ar_proxy_nctc import (
     default_block_starts,
     summarize_proxy_records,
 )
-from mindrl_repo.benchmark_tasks import TaskSample, load_jsonl_samples, load_preset_samples
+from mindrl.benchmark_tasks import TaskSample, load_jsonl_samples, load_preset_samples
 
 
 def main() -> None:
@@ -44,7 +44,7 @@ def main() -> None:
 
     scorer = None
     if not args.mock_scorer:
-        from mindrl_repo.hf_scorer import HFCausalLMScorer
+        from mindrl.hf_scorer import HFCausalLMScorer
 
         scorer = HFCausalLMScorer(
             model_name=args.model,
