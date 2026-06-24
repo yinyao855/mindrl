@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from mindrl.core import AlgorithmConfig, TrainReport
 from mindrl.interface_controller import (
     AdapterDecision,
     BarrierProfile,
@@ -66,6 +67,37 @@ def run_controller_ablation(
         risk_cost=risk_cost / count,
         update_budget=update_budget / count,
         decisions=tuple(decisions),
+    )
+
+
+def summarize_controller_ablation(
+    run_name: str,
+    scenarios: list[BranchScenario],
+) -> TrainReport:
+    """Run all controller strategies and return a compact report."""
+
+    strategies: tuple[Strategy, ...] = ("uniform", "score_routing", "barrier_gated")
+    results = {
+        strategy: run_controller_ablation(scenarios, strategy)
+        for strategy in strategies
+    }
+    metrics: dict[str, float] = {}
+    for strategy, result in results.items():
+        metrics[f"{strategy}_effective_reward"] = result.effective_reward
+        metrics[f"{strategy}_risk_cost"] = result.risk_cost
+        metrics[f"{strategy}_update_budget"] = result.update_budget
+    best_strategy = min(
+        strategies,
+        key=lambda strategy: (
+            results[strategy].risk_cost,
+            -results[strategy].effective_reward,
+        ),
+    )
+    return TrainReport(
+        run_name=run_name,
+        algorithm=AlgorithmConfig(name="controller_ablation", branch="mixed"),
+        metrics=metrics,
+        artifacts={"best_strategy": best_strategy},
     )
 
 

@@ -1,24 +1,35 @@
-# Quickstart: AR OPD Objective
+# Quickstart: AR OPD Step
 
 On-policy distillation (OPD) trains on states visited by the student policy.
-The first MVP exposes the objective separately from a heavyweight trainer:
+The first MVP exposes the student rollout, teacher signal adapter, token-level
+clipping, and report path separately from a heavyweight trainer:
 
 ```python
-from mindrl.ar_training import compute_opd_objective
-from mindrl.core import TeacherSignal
-
-objective = compute_opd_objective(
-    student_logprobs={"s1": (-0.4, -0.6)},
-    teacher_signals=(TeacherSignal("s1", (-0.1, -0.3)),),
+from mindrl.opd import (
+    MappingTeacherSignalAdapter,
+    MockARPolicy,
+    OPDConfig,
+    run_opd_step,
 )
+
+student = MockARPolicy(
+    responses={"math": "wait add four"},
+    token_logprobs={"opd-0": (-1.3, -0.4, -0.3)},
+)
+teacher = MappingTeacherSignalAdapter(
+    token_logprobs={"opd-0": (-0.1, -0.2, -0.2)},
+    entropies={"opd-0": (1.5, 0.4, 0.3)},
+)
+result = run_opd_step(("math",), student, teacher, OPDConfig(per_token_clip=0.25))
 ```
 
 Interpretation:
 
-- `student_logprobs` comes from the current student rollout.
-- `TeacherSignal` stores dense teacher token log probabilities on the same
-  rollout states.
-- The MVP objective reports token-level mismatch and per-sample weights.
+- The student creates the rollout states, preserving the on-policy property.
+- The teacher only scores those student states with dense token logprobs.
+- `per_token_clip` limits high-KL style/pivot tokens from dominating updates.
+- The report tracks `raw_objective`, `clipped_tokens`, and
+  `mean_teacher_entropy`.
 
 Real-model integration should add a rollout engine and teacher-logprob adapter,
 not change the objective API.

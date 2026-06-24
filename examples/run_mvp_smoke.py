@@ -7,6 +7,9 @@ from pathlib import Path
 
 from mindrl.mvp_benchmarks import (
     build_ar_grpo_smoke_report,
+    build_ar_lora_plan_report,
+    build_ar_opd_smoke_report,
+    build_controller_ablation_report,
     build_diffusion_ddpo_smoke_report,
     write_reports,
 )
@@ -24,7 +27,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    reports = (build_ar_grpo_smoke_report(), build_diffusion_ddpo_smoke_report())
+    reports = (
+        build_ar_grpo_smoke_report(),
+        build_ar_opd_smoke_report(),
+        build_ar_lora_plan_report("qwen-7b"),
+        build_diffusion_ddpo_smoke_report(),
+        build_controller_ablation_report(),
+    )
     paths = write_reports(Path(args.output_dir), reports)
     print(f"wrote {paths['jsonl']}")
     print(f"wrote {paths['markdown']}")

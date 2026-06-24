@@ -18,18 +18,36 @@ plugging into TRL, verl, OpenRLHF, or a diffusion training stack.
   - `TeacherSignal`
   - `AlgorithmConfig` / `ObjectiveOutput` / `TrainReport`
 - AR LLM objectives:
+  - grouped rollout + reward adapter for GRPO
   - exact-match verifiable reward
   - GRPO-style group-relative objective
-  - OPD-style token-level teacher/student matching
+  - OPD-style student rollout + teacher signal adapter
+  - OPD per-token clipping and entropy diagnostics
   - REINFORCE++/OPO-like batch-baseline objective
+- AR trainer planning:
+  - Qwen 0.5B/1.5B/7B/13B LoRA and QLoRA presets
+  - effective batch size and rough VRAM estimates
 - Diffusion objectives:
+  - diffusers-style pipeline adapter protocol
   - DDPO-style denoising trajectory objective
   - compressibility reward
   - CLIP-like prompt/caption alignment proxy
+  - image-grid manifest for report review
   - controller-backed diffusion run summary
+- External framework exports:
+  - TRL GRPO config dictionary
+  - verl OPD config dictionary
+  - OpenRLHF GRPO command arguments
+- Controller ablation:
+  - uniform reward
+  - score routing
+  - barrier-gated controller
 - Smoke benchmark/report path:
   - AR GRPO smoke
+  - AR OPD smoke
+  - AR LoRA plan smoke
   - diffusion DDPO smoke
+  - controller ablation smoke
   - JSONL + Markdown report output
 
 ## Run the MVP Smoke
@@ -51,6 +69,7 @@ uv run python -m unittest discover -s tests -p "test_*.py"
 
 - `docs/quickstart_ar_grpo.md`
 - `docs/quickstart_ar_opd.md`
+- `docs/quickstart_ar_lora.md`
 - `docs/quickstart_diffusion_ddpo.md`
 - `docs/custom_reward.md`
 - `docs/troubleshooting.md`
@@ -63,6 +82,11 @@ uv run python -m unittest discover -s tests -p "test_*.py"
 src/mindrl/
   core.py                    # rollout, reward, teacher signal, report objects
   ar_training.py             # GRPO, OPD, exact reward, baseline objective
+  grpo.py                    # grouped rollout/reward loop for GRPO
+  opd.py                     # on-policy distillation rollout/teacher loop
+  ar_trainer.py              # LoRA/QLoRA training plan presets
+  external_adapters.py       # TRL/verl/OpenRLHF config exporters
+  diffusion_adapter.py       # diffusers-style rollout adapter and image manifest
   diffusion_training.py      # DDPO-style trajectory objective and rewards
   interface_controller.py    # pluggable MindRL controller primitives
   mvp_benchmarks.py          # dependency-light AR + diffusion smoke reports

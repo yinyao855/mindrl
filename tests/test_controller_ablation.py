@@ -1,6 +1,10 @@
 import unittest
 
-from mindrl.controller_ablation import BranchScenario, run_controller_ablation
+from mindrl.controller_ablation import (
+    BranchScenario,
+    run_controller_ablation,
+    summarize_controller_ablation,
+)
 from mindrl.interface_controller import BarrierProfile, PolicySpec
 
 
@@ -37,6 +41,40 @@ class ControllerAblationTest(unittest.TestCase):
         self.assertLess(gated.update_budget, uniform.update_budget)
         self.assertLess(gated.risk_cost, uniform.risk_cost)
         self.assertIn("dependence_aware_block", [d.adapter for d in gated.decisions])
+
+    def test_summarize_controller_ablation_reports_all_strategies(self):
+        scenarios = [
+            BranchScenario(
+                spec=PolicySpec(
+                    name="ar",
+                    modality="text",
+                    structure="ar",
+                    score_availability="exact",
+                    default_granularity=1,
+                ),
+                profile=BarrierProfile(),
+                reward=1.0,
+            ),
+            BranchScenario(
+                spec=PolicySpec(
+                    name="diffusion",
+                    modality="image",
+                    structure="diffusion",
+                    score_availability="surrogate",
+                    default_granularity=8,
+                ),
+                profile=BarrierProfile(surrogate_variance=0.4, drift=0.5),
+                reward=0.8,
+            ),
+        ]
+
+        report = summarize_controller_ablation("controller-ablation-smoke", scenarios)
+        record = report.to_json_record()
+
+        self.assertEqual(record["algorithm"]["name"], "controller_ablation")
+        self.assertIn("uniform_risk_cost", record["metrics"])
+        self.assertIn("barrier_gated_risk_cost", record["metrics"])
+        self.assertIn("best_strategy", record["artifacts"])
 
 
 if __name__ == "__main__":

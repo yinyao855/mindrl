@@ -22,6 +22,10 @@ The MVP exposes objective and report APIs, but does not implement distributed
 Ray/vLLM/FSDP scheduling. For 7B/13B, prefer LoRA/QLoRA and plug the rollout
 engine into TRL, verl, or OpenRLHF.
 
+Use `mindrl.external_adapters` to export starter configs. These exporters do not
+install or invoke the external frameworks; they keep MindRL's interface layer
+testable without pulling large runtime dependencies into the core package.
+
 ## Diffusion Runs
 
 The first DDPO module is an adapter target, not a full diffusers trainer. Real
