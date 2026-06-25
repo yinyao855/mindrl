@@ -11,3 +11,6 @@ wheels/
 
 # Local smoke run artifacts
 outputs/mvp_smoke/
+outputs/real_*_smoke*/
+outputs/real_ar_smoke*/
+outputs/real_opd_smoke*/

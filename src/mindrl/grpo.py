@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Protocol
 
 from mindrl.ar_training import compute_grpo_objective
@@ -102,6 +103,27 @@ class ExactAnswerRewardAdapter:
             expected = self.answers[prompt_id]
             rewards[sample.sample_id] = 1.0 if sample.response.strip().lower() == expected else 0.0
         return RewardOutput(rewards)
+
+
+class NumericAnswerRewardAdapter:
+    """Reward the first numeric answer in a response."""
+
+    def __init__(self, answers: dict[str, str]) -> None:
+        self.answers = {prompt: self._first_number(answer) for prompt, answer in answers.items()}
+
+    def score(self, batch: RolloutBatch) -> RewardOutput:
+        rewards: dict[str, float] = {}
+        for sample in batch.samples:
+            prompt_id = str(sample.metadata["prompt_id"])
+            expected = self.answers[prompt_id]
+            actual = self._first_number(sample.response)
+            rewards[sample.sample_id] = 1.0 if actual == expected else 0.0
+        return RewardOutput(rewards)
+
+    @staticmethod
+    def _first_number(text: str) -> str:
+        match = re.search(r"-?\d+(?:\.\d+)?", text)
+        return match.group(0) if match else ""
 
 
 def run_grpo_step(

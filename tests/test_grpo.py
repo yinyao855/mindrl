@@ -4,6 +4,7 @@ from mindrl.grpo import (
     ExactAnswerRewardAdapter,
     GRPOConfig,
     MockGroupRolloutPolicy,
+    NumericAnswerRewardAdapter,
     run_grpo_step,
 )
 
@@ -36,6 +37,16 @@ class GRPORolloutTest(unittest.TestCase):
         )
         batch = policy.rollout(("math",), group_size=2)
         reward = ExactAnswerRewardAdapter({"math": "4"}).score(batch)
+
+        self.assertEqual(reward.sample_rewards, {"grpo-0-0": 1.0, "grpo-0-1": 0.0})
+
+    def test_numeric_answer_reward_accepts_correct_answer_prefix(self):
+        policy = MockGroupRolloutPolicy(
+            completions={"math": ("4, 2+3=5", "100, 3+3=99")},
+            logprob_ratios={"grpo-0-0": 1.0, "grpo-0-1": 1.0},
+        )
+        batch = policy.rollout(("math",), group_size=2)
+        reward = NumericAnswerRewardAdapter({"math": "4"}).score(batch)
 
         self.assertEqual(reward.sample_rewards, {"grpo-0-0": 1.0, "grpo-0-1": 0.0})
 
