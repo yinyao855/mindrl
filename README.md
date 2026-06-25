@@ -59,6 +59,16 @@ uv run mindrl
 
 Outputs are written to `outputs/mvp_smoke/`.
 
+## Run Real Model Smokes
+
+These commands use local Hugging Face snapshots when available:
+
+```bash
+uv run python examples/run_real_ar_smoke.py --model <local-causal-lm-snapshot>
+uv run python examples/run_real_opd_smoke.py --student-model <local-causal-lm-snapshot>
+uv run python examples/run_peft_sft_smoke.py --model <local-causal-lm-snapshot>
+```
+
 ## Test
 
 ```bash

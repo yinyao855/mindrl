@@ -101,3 +101,45 @@ Turn the current real smoke into a real training loop:
 2. Add reference-model logprob or frozen pre-update policy for non-trivial GRPO
    ratios/KL.
 3. Persist checkpoints and compare before/after reward on the same prompts.
+
+## PEFT LoRA Update Smoke
+
+After adding `peft` and `accelerate`, a real LoRA SFT update was run on cached
+`sshleifer/tiny-gpt2`.
+
+Command shape:
+
+```bash
+uv run python examples/run_peft_sft_smoke.py \
+  --model <tiny-gpt2 snapshot> \
+  --device cpu \
+  --max-steps 5 \
+  --learning-rate 1e-3
+```
+
+Result:
+
+- `before_loss`: `10.839324951171875`
+- `after_loss`: `10.839273452758789`
+- `loss_delta`: `-5.14984130859375e-05`
+- `trainable_parameters`: `64`
+- `before_reward`: `0.0`
+- `after_reward`: `0.0`
+
+Interpretation:
+
+- The real PEFT/LoRA update path works end to end.
+- tiny-gpt2 is too weak for numeric reward improvement in this setting, but the
+  training loss moves in the expected direction.
+
+### Qwen3-0.6B Training Attempt
+
+Qwen3-0.6B LoRA training was attempted with CUDA and automatic bf16/fp16 loading,
+but failed with CUDA OOM. `nvidia-smi` showed all RTX 3090 GPUs were already
+heavily occupied, with roughly 20-24GB used on each 24GB GPU.
+
+Conclusion:
+
+- Qwen3-0.6B inference smoke is feasible in the current environment.
+- Qwen3-0.6B PEFT training needs a freer GPU, CPU fallback, or a more aggressive
+  memory strategy before it can produce a meaningful before/after result.
