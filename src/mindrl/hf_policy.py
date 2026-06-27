@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -19,6 +20,7 @@ class GenerationRecord:
     prompt: str
     response: str
     token_logprobs: tuple[float, ...]
+    reference_token_logprobs: tuple[float, ...] = ()
 
 
 def records_to_rollout_batch(records: tuple[GenerationRecord, ...]) -> RolloutBatch:
@@ -39,6 +41,7 @@ def records_to_rollout_batch(records: tuple[GenerationRecord, ...]) -> RolloutBa
                     "prompt_id": record.prompt,
                     "group_index": group_index,
                     "token_count": len(record.token_logprobs),
+                    "reference_token_count": len(record.reference_token_logprobs),
                 },
             )
         )
@@ -49,6 +52,34 @@ def format_privileged_context(prompt: str, answer: str) -> str:
     """Build a teacher context with privileged answer information."""
 
     return f"Correct answer: {answer}\nProblem: {prompt}\nStudent response:"
+
+
+def sequence_logprob_ratio(
+    token_logprobs: tuple[float, ...],
+    reference_token_logprobs: tuple[float, ...],
+) -> float:
+    """Compute a sequence-level policy/reference probability ratio."""
+
+    if len(token_logprobs) != len(reference_token_logprobs):
+        raise ValueError("current and reference token logprobs must have equal length")
+    if not token_logprobs:
+        return 1.0
+    log_ratio = sum(token_logprobs) - sum(reference_token_logprobs)
+    return math.exp(max(-20.0, min(20.0, log_ratio)))
+
+
+def sequence_kl_diagnostic(
+    token_logprobs: tuple[float, ...],
+    reference_token_logprobs: tuple[float, ...],
+) -> float:
+    """Report a non-negative sampled-token logprob gap diagnostic."""
+
+    if len(token_logprobs) != len(reference_token_logprobs):
+        raise ValueError("current and reference token logprobs must have equal length")
+    if not token_logprobs:
+        return 0.0
+    gaps = [abs(current - reference) for current, reference in zip(token_logprobs, reference_token_logprobs)]
+    return sum(gaps) / len(gaps)
 
 
 class HFCausalLMGroupPolicy:
@@ -63,11 +94,13 @@ class HFCausalLMGroupPolicy:
         max_new_tokens: int = 16,
         temperature: float = 0.7,
         top_p: float = 0.95,
+        dtype: str = "auto",
     ) -> None:
         self.device = resolve_device(device)
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.top_p = top_p
+        torch_dtype = resolve_torch_dtype(dtype, self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name,
             local_files_only=local_files_only,
@@ -77,6 +110,7 @@ class HFCausalLMGroupPolicy:
             model_name,
             local_files_only=local_files_only,
             cache_dir=cache_dir,
+            torch_dtype=torch_dtype,
         ).to(self.device)
         self.model.eval()
         if self.tokenizer.pad_token_id is None:
@@ -106,13 +140,14 @@ class HFCausalLMGroupPolicy:
                 )[0]
                 completion_ids = output_ids[prompt_ids.shape[1] :]
                 response = self.tokenizer.decode(completion_ids, skip_special_tokens=True)
-                token_logprobs = self._score_completion_ids(prompt_ids[0], completion_ids)
+                token_logprobs, reference_token_logprobs = self._score_completion_ids(prompt_ids[0], completion_ids)
                 records.append(
                     GenerationRecord(
                         sample_id=f"hf-{prompt_index}-{group_index}",
                         prompt=prompt,
                         response=response,
                         token_logprobs=tuple(token_logprobs),
+                        reference_token_logprobs=tuple(reference_token_logprobs),
                     )
                 )
         self._records = tuple(records)
@@ -122,12 +157,26 @@ class HFCausalLMGroupPolicy:
         return records_to_rollout_batch(self.generate_records(prompts, group_size))
 
     def logprob_ratios(self, batch: RolloutBatch) -> dict[str, float]:
-        # Without a reference model loaded, this real smoke uses ratio 1.0 and
-        # still records per-sample logprob diagnostics separately.
-        return {sample_id: 1.0 for sample_id in batch.sample_ids}
+        records = {record.sample_id: record for record in self._records}
+        ratios: dict[str, float] = {}
+        for sample_id in batch.sample_ids:
+            record = records[sample_id]
+            ratios[sample_id] = sequence_logprob_ratio(
+                record.token_logprobs,
+                record.reference_token_logprobs,
+            )
+        return ratios
 
     def kl(self, batch: RolloutBatch) -> dict[str, float]:
-        return {sample_id: 0.0 for sample_id in batch.sample_ids}
+        records = {record.sample_id: record for record in self._records}
+        diagnostics: dict[str, float] = {}
+        for sample_id in batch.sample_ids:
+            record = records[sample_id]
+            diagnostics[sample_id] = sequence_kl_diagnostic(
+                record.token_logprobs,
+                record.reference_token_logprobs,
+            )
+        return diagnostics
 
     def score(self, batch: RolloutBatch) -> dict[str, tuple[float, ...]]:
         records = {record.sample_id: record for record in self._records}
@@ -148,16 +197,16 @@ class HFCausalLMGroupPolicy:
         self,
         prompt_ids: torch.Tensor,
         completion_ids: torch.Tensor,
-    ) -> list[float]:
+    ) -> tuple[list[float], list[float]]:
         if completion_ids.numel() == 0:
-            return []
-        joint, _ = score_completion_token_ids(
+            return [], []
+        joint, marginals = score_completion_token_ids(
             self.model,
             prompt_ids.detach().cpu(),
             completion_ids.detach().cpu(),
             self.device,
         )
-        return joint
+        return joint, marginals
 
 
 class HFCausalLMTeacherSignalAdapter:
@@ -170,9 +219,11 @@ class HFCausalLMTeacherSignalAdapter:
         device: DeviceSpec = "auto",
         local_files_only: bool = True,
         cache_dir: str | None = None,
+        dtype: str = "auto",
     ) -> None:
         self.answers = answers
         self.device = resolve_device(device)
+        torch_dtype = resolve_torch_dtype(dtype, self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name,
             local_files_only=local_files_only,
@@ -182,6 +233,7 @@ class HFCausalLMTeacherSignalAdapter:
             model_name,
             local_files_only=local_files_only,
             cache_dir=cache_dir,
+            torch_dtype=torch_dtype,
         ).to(self.device)
         self.model.eval()
         if self.tokenizer.pad_token_id is None:
@@ -245,3 +297,19 @@ class HFCausalLMTeacherSignalAdapter:
             log_probs = torch.log_softmax(logits[predictor_position], dim=-1)
             entropies.append(float(-(probs * log_probs).sum().cpu()))
         return entropies
+
+
+def resolve_torch_dtype(dtype: str, device: torch.device):
+    """Resolve user-facing dtype flags for Hugging Face model loading."""
+
+    if dtype == "auto":
+        if device.type == "cuda":
+            return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        return None
+    if dtype == "bf16":
+        return torch.bfloat16
+    if dtype == "fp16":
+        return torch.float16
+    if dtype == "fp32":
+        return torch.float32
+    raise ValueError(f"unknown dtype: {dtype}")

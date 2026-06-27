@@ -15,3 +15,6 @@ outputs/real_*_smoke*/
 outputs/real_ar_smoke*/
 outputs/real_opd_smoke*/
 outputs/peft_sft_smoke*/
+outputs/peft_opd_smoke*/
+outputs/llada_*
+outputs/qwen2_5_*load_inference_smoke.json

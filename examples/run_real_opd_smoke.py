@@ -8,6 +8,7 @@ from pathlib import Path
 
 from mindrl.hf_policy import HFCausalLMGroupPolicy, HFCausalLMTeacherSignalAdapter
 from mindrl.opd import OPDConfig, run_opd_step
+from mindrl.smoke_prompts import math_smoke_prompts_and_answers
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,6 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--max-new-tokens", type=int, default=8)
     parser.add_argument("--per-token-clip", type=float, default=0.25)
+    parser.add_argument("--dtype", default="auto", choices=("auto", "bf16", "fp16", "fp32"))
     parser.add_argument("--output-dir", default="outputs/real_opd_smoke")
     return parser.parse_args()
 
@@ -25,8 +27,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     teacher_model = args.teacher_model or args.student_model
-    prompts = ("2+2=", "3+5=")
-    answers = {"2+2=": "4", "3+5=": "8"}
+    prompts, answers = math_smoke_prompts_and_answers()
     student = HFCausalLMGroupPolicy(
         model_name=args.student_model,
         device=args.device,
@@ -34,6 +35,7 @@ def main() -> None:
         cache_dir=args.cache_dir,
         max_new_tokens=args.max_new_tokens,
         temperature=0.7,
+        dtype=args.dtype,
     )
     teacher = HFCausalLMTeacherSignalAdapter(
         model_name=teacher_model,
@@ -41,6 +43,7 @@ def main() -> None:
         device=args.device,
         local_files_only=True,
         cache_dir=args.cache_dir,
+        dtype=args.dtype,
     )
     result = run_opd_step(
         prompts,

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from mindrl.grpo import GRPOConfig, NumericAnswerRewardAdapter, run_grpo_step
 from mindrl.hf_policy import HFCausalLMGroupPolicy
+from mindrl.smoke_prompts import math_smoke_prompts_and_answers
 
 
 def parse_args() -> argparse.Namespace:
@@ -17,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--group-size", type=int, default=2)
     parser.add_argument("--max-new-tokens", type=int, default=8)
+    parser.add_argument("--dtype", default="auto", choices=("auto", "bf16", "fp16", "fp32"))
     parser.add_argument("--local-files-only", action="store_true", default=True)
     parser.add_argument("--output-dir", default="outputs/real_ar_smoke")
     return parser.parse_args()
@@ -24,8 +26,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    prompts = ("2+2=", "3+5=")
-    answers = {"2+2=": "4", "3+5=": "8"}
+    prompts, answers = math_smoke_prompts_and_answers()
     policy = HFCausalLMGroupPolicy(
         model_name=args.model,
         device=args.device,
@@ -33,6 +34,7 @@ def main() -> None:
         cache_dir=args.cache_dir,
         max_new_tokens=args.max_new_tokens,
         temperature=0.7,
+        dtype=args.dtype,
     )
     result = run_grpo_step(
         prompts,
