@@ -160,6 +160,7 @@ CUDA_VISIBLE_DEVICES=2 uv run python examples/run_real_ar_smoke.py \
 相关模块：
 
 - `src/mindrl/opd.py`
+- `src/mindrl/generalized_opd.py`
 - `src/mindrl/hf_policy.py`
 - `src/mindrl/peft_trainer.py`
 - `examples/run_real_opd_smoke.py`
@@ -172,6 +173,7 @@ CUDA_VISIBLE_DEVICES=2 uv run python examples/run_real_ar_smoke.py \
 - teacher token logprob scoring
 - teacher entropy diagnostic
 - clipped OPD objective
+- 通用 teacher-guided on-policy vector objective，可用于 AR token gap、diffusion denoising target、flow velocity target 等 branch-native 信号
 - PEFT LoRA 一步 OPD update
 - before/after OPD loss 和 numeric reward
 
