@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any
 
-from mindrl.core import ObjectiveOutput, RolloutBatch, TeacherSignal
+from mindrl.core import AlgorithmConfig, ObjectiveOutput, RolloutBatch, TeacherSignal, TrainReport
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,16 @@ class TeacherGuidedObjectiveConfig:
     name: str = "teacher_guided_opd"
     branch: str = "generic"
     per_element_clip: float | None = None
+
+
+@dataclass(frozen=True)
+class ToyTeacherGuidedUpdateResult:
+    """Before/after result for dependency-light teacher-guided toy updates."""
+
+    before: ObjectiveOutput
+    after: ObjectiveOutput
+    updated_states: tuple[OnPolicyState, ...]
+    report: TrainReport
 
 
 def rollout_batch_to_on_policy_states(
@@ -130,3 +140,57 @@ def compute_teacher_guided_objective(
             "clipped_ratio": clipped_elements / element_count if element_count else 0.0,
         },
     )
+
+
+def run_toy_teacher_guided_update(
+    states: tuple[OnPolicyState, ...],
+    guidance: tuple[TeacherGuidance, ...],
+    config: TeacherGuidedObjectiveConfig | None = None,
+    learning_rate: float = 0.1,
+) -> ToyTeacherGuidedUpdateResult:
+    """Move vector states one step toward teacher targets and report loss change."""
+
+    if learning_rate < 0.0 or learning_rate > 1.0:
+        raise ValueError("learning_rate must be between 0 and 1")
+    config = config or TeacherGuidedObjectiveConfig()
+    before = compute_teacher_guided_objective(states, guidance, config)
+    guidance_by_id = {item.state_id: item for item in guidance}
+    updated: list[OnPolicyState] = []
+    for state in states:
+        teacher = guidance_by_id.get(state.state_id)
+        if teacher is None:
+            raise ValueError(f"missing teacher guidance for {state.state_id}")
+        if len(state.payload) != len(teacher.target):
+            raise ValueError(f"payload/target length mismatch for {state.state_id}")
+        new_payload = tuple(
+            student_value + learning_rate * (teacher_value - student_value)
+            for student_value, teacher_value in zip(state.payload, teacher.target)
+        )
+        updated.append(
+            OnPolicyState(
+                state_id=state.state_id,
+                branch=state.branch,
+                payload=new_payload,
+                metadata=dict(state.metadata),
+            )
+        )
+    updated_states = tuple(updated)
+    after = compute_teacher_guided_objective(updated_states, guidance, config)
+    report = TrainReport(
+        run_name=f"{config.name}-toy-update",
+        algorithm=AlgorithmConfig(
+            name="teacher_guided_opd",
+            branch=config.branch,
+            hyperparameters={
+                "learning_rate": learning_rate,
+                "per_element_clip": config.per_element_clip,
+            },
+        ),
+        metrics={
+            "before_loss": before.objective,
+            "after_loss": after.objective,
+            "loss_delta": after.objective - before.objective,
+            "clipped_ratio": after.diagnostics["clipped_ratio"],
+        },
+    )
+    return ToyTeacherGuidedUpdateResult(before, after, updated_states, report)

@@ -16,6 +16,23 @@ class SmokePromptsTest(unittest.TestCase):
         self.assertIn("Question: What is 2 + 2?", examples[0].prompt)
         self.assertTrue(examples[0].prompt.endswith("Answer with only one number:\n"))
 
+    def test_harder_math_smoke_examples_include_multi_step_arithmetic(self):
+        import mindrl.smoke_prompts as smoke_prompts
+
+        examples = smoke_prompts.harder_math_smoke_examples()
+
+        self.assertGreaterEqual(len(examples), 4)
+        self.assertIn("12 * 7", examples[0].prompt)
+        self.assertEqual(examples[0].target, "84")
+
+    def test_math_smoke_prompts_and_answers_can_select_harder_set(self):
+        import mindrl.smoke_prompts as smoke_prompts
+
+        prompts, answers = smoke_prompts.math_smoke_prompts_and_answers("harder")
+
+        self.assertGreaterEqual(len(prompts), 4)
+        self.assertEqual(answers[prompts[0]], "84")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -152,6 +152,8 @@ CUDA_VISIBLE_DEVICES=2 uv run python examples/run_real_ar_smoke.py \
   --dtype fp16 \
   --group-size 2 \
   --max-new-tokens 8 \
+  --prompt-set harder \
+  --reward-mode strict_numeric \
   --output-dir outputs/real_ar_smoke
 ```
 

@@ -5,6 +5,7 @@ from mindrl.grpo import (
     GRPOConfig,
     MockGroupRolloutPolicy,
     NumericAnswerRewardAdapter,
+    StrictNumericAnswerRewardAdapter,
     run_grpo_step,
 )
 
@@ -49,6 +50,28 @@ class GRPORolloutTest(unittest.TestCase):
         reward = NumericAnswerRewardAdapter({"math": "4"}).score(batch)
 
         self.assertEqual(reward.sample_rewards, {"grpo-0-0": 1.0, "grpo-0-1": 0.0})
+
+    def test_strict_numeric_answer_reward_rejects_verbose_continuations(self):
+        policy = MockGroupRolloutPolicy(
+            completions={"math": ("4", "4\nThe answer is four.")},
+            logprob_ratios={"grpo-0-0": 1.2, "grpo-0-1": 0.8},
+        )
+        batch = policy.rollout(("math",), group_size=2)
+        reward = StrictNumericAnswerRewardAdapter({"math": "4"}).score(batch)
+
+        self.assertEqual(reward.sample_rewards, {"grpo-0-0": 1.0, "grpo-0-1": 0.0})
+
+    def test_strict_reward_can_produce_nonzero_policy_term(self):
+        policy = MockGroupRolloutPolicy(
+            completions={"math": ("4", "4\nextra text")},
+            logprob_ratios={"grpo-0-0": 1.2, "grpo-0-1": 0.8},
+        )
+        reward = StrictNumericAnswerRewardAdapter({"math": "4"})
+
+        result = run_grpo_step(("math",), policy, reward, GRPOConfig(group_size=2))
+
+        self.assertGreater(result.objective.diagnostics["policy_term"], 0.0)
+        self.assertLess(result.objective.objective, 0.0)
 
     def test_run_grpo_step_returns_report_with_group_metrics(self):
         policy = MockGroupRolloutPolicy(

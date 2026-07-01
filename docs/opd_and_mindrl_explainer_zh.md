@@ -634,3 +634,95 @@ MindRL 的主张：
 ```
 
 所以 MindRL 不是简单的 OPD 变体。它更像是一个总控层，OPD 是它在 AR teacher-guided 场景下可以调用的一种 branch-native update。MindRL 也可以把 OPD 的思想推广成“teacher-guided on-policy update”，但推广到 diffusion / flow / VLA 时，必须换成对应分支原生的 score、surrogate、anchor 或结构约束。
+
+## 12. 三个常见术语解释
+
+### policy_term
+
+`policy_term` 是 GRPO / policy-gradient 路径里的策略更新信号。当前 MindRL 的简化 GRPO objective 里：
+
+```text
+policy_term = mean(logprob_ratio(sample) * advantage(sample))
+objective = -(policy_term - kl_weight * kl)
+```
+
+其中：
+
+- `advantage(sample)` 来自同组 reward 差异。
+- `logprob_ratio(sample)` 表示当前 policy 相对 reference policy 对该 sample 的偏好。
+
+如果所有 rollout reward 都一样，那么 group-relative advantage 全部为 0：
+
+```text
+reward = (1.0, 1.0)
+mean_reward = 1.0
+advantage = (0.0, 0.0)
+policy_term = 0.0
+```
+
+所以 `policy_term=0` 不一定表示模型或 ratio 出错，也可能只是 batch 没有偏好差异。为了更容易观察非零 `policy_term`，MindRL 增加了：
+
+```text
+--prompt-set harder
+--reward-mode strict_numeric
+```
+
+`strict_numeric` 会拒绝带多余解释文本的答案，使同组 rollout 更容易产生 reward 差异。
+
+### device-map-aware
+
+`device_map` 是 Hugging Face / accelerate 中把一个模型拆到多张 GPU 或 CPU 上的机制。例如 Qwen2.5-14B 在两张 24GB 3090 上加载时可以分成：
+
+```text
+layers 0-21  -> GPU 0
+layers 22-47 -> GPU 1
+lm_head      -> GPU 1
+```
+
+这叫 inference path 支持 `device_map=auto`。
+
+但 training / PEFT 比 inference 更复杂。训练时除了权重，还需要：
+
+- gradients
+- optimizer states
+- LoRA adapter parameters
+- activation / KV cache
+- forward/backward 跨设备通信
+
+所以“device-map-aware PEFT”不是简单把 `device_map="auto"` 加进去，而是要保证：
+
+- inputs 被送到正确 device。
+- LoRA adapter 挂在跨设备模块上仍可训练。
+- loss backward 能跨设备传播。
+- optimizer 只更新 trainable adapter。
+- 保存/合并 adapter 时能处理分片模型。
+
+当前 MindRL 的 `run_peft_sft_update` 和 `run_peft_opd_update` 是单 device 设计，因此 Qwen2.5-14B 只跑了两卡 load/inference，还没有跑 PEFT。
+
+### remote code 兼容问题
+
+Hugging Face 模型可以在 `config.json` 里声明自定义代码：
+
+```text
+auto_map:
+  AutoModel: modeling_xxx.CustomModel
+  AutoTokenizer: tokenization_xxx.CustomTokenizer
+```
+
+加载时如果设置 `trust_remote_code=True`，transformers 会执行这些模型仓库里的 Python 文件。
+
+问题是：这些 remote code 往往依赖特定 transformers 版本。比如 LLaDA 8B 的配置标注接近 `transformers 4.46.x`，但当前 MindRL 环境是 `transformers 5.12.1`。加载时出现：
+
+```text
+AttributeError: 'LLaDAModelLM' object has no attribute 'all_tied_weights_keys'
+```
+
+这说明模型代码调用了旧版本 transformers 里存在或行为不同的属性，而当前版本 API 已变。
+
+解决路线通常有三种：
+
+1. 建一个与模型声明版本匹配的独立环境。
+2. patch remote modeling code 以适配当前 transformers。
+3. 等模型仓库更新 remote code。
+
+对 MindRL 来说，这属于模型适配层问题，不是 OPD / controller 抽象本身的问题。

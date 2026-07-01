@@ -126,6 +126,31 @@ class NumericAnswerRewardAdapter:
         return match.group(0) if match else ""
 
 
+class StrictNumericAnswerRewardAdapter:
+    """Reward only responses that contain exactly one numeric answer."""
+
+    def __init__(self, answers: dict[str, str]) -> None:
+        self.answers = {prompt: self._normalize(answer) for prompt, answer in answers.items()}
+
+    def score(self, batch: RolloutBatch) -> RewardOutput:
+        rewards: dict[str, float] = {}
+        metadata: dict[str, dict[str, str]] = {}
+        for sample in batch.samples:
+            prompt_id = str(sample.metadata["prompt_id"])
+            expected = self.answers[prompt_id]
+            actual = self._normalize(sample.response)
+            rewards[sample.sample_id] = 1.0 if actual == expected else 0.0
+            metadata[sample.sample_id] = {"expected": expected, "actual": actual}
+        return RewardOutput(rewards, metadata)
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        stripped = text.strip()
+        if not re.fullmatch(r"-?\d+(?:\.\d+)?", stripped):
+            return ""
+        return stripped
+
+
 def run_grpo_step(
     prompts: tuple[str, ...],
     policy: GroupRolloutPolicy,

@@ -19,6 +19,12 @@ from mindrl.core import (
     TeacherSignal,
     TrainReport,
 )
+from mindrl.generalized_opd import (
+    TeacherGuidedObjectiveConfig,
+    compute_teacher_guided_objective,
+    rollout_batch_to_on_policy_states,
+    teacher_signals_to_guidance,
+)
 
 
 @dataclass(frozen=True)
@@ -27,6 +33,7 @@ class OPDConfig:
 
     per_token_clip: float | None = None
     run_name: str = "ar-opd-smoke"
+    objective_backend: str = "classic"
 
 
 @dataclass(frozen=True)
@@ -195,24 +202,58 @@ def run_opd_step(
     student_logprobs = student_policy.score(batch)
     teacher_signals = teacher_adapter.signals_for(batch)
     teacher_entropies = getattr(teacher_adapter, "entropies", {})
-    objective = compute_clipped_opd_objective(
-        student_logprobs,
-        teacher_signals,
-        config=config,
-        teacher_entropies=teacher_entropies,
-    )
+    if config.objective_backend == "classic":
+        objective = compute_clipped_opd_objective(
+            student_logprobs,
+            teacher_signals,
+            config=config,
+            teacher_entropies=teacher_entropies,
+        )
+        clipped_token_ratio = (
+            objective.diagnostics["clipped_tokens"] / objective.diagnostics["tokens"]
+            if objective.diagnostics["tokens"]
+            else 0.0
+        )
+    elif config.objective_backend == "generalized":
+        objective = compute_teacher_guided_objective(
+            rollout_batch_to_on_policy_states(batch, student_logprobs),
+            teacher_signals_to_guidance(teacher_signals),
+            TeacherGuidedObjectiveConfig(
+                name="ar-generalized-opd",
+                branch="ar",
+                per_element_clip=config.per_token_clip,
+            ),
+        )
+        objective = ObjectiveOutput(
+            objective=objective.objective,
+            sample_weights=objective.sample_weights,
+            diagnostics={
+                "raw_objective": objective.diagnostics["raw_objective"],
+                "tokens": objective.diagnostics["elements"],
+                "clipped_tokens": objective.diagnostics["clipped_elements"],
+                "mean_teacher_entropy": _mean_teacher_entropy(teacher_entropies),
+                "clipped_token_ratio": objective.diagnostics["clipped_ratio"],
+            },
+        )
+        clipped_token_ratio = objective.diagnostics["clipped_token_ratio"]
+    else:
+        raise ValueError(f"unknown OPD objective_backend: {config.objective_backend}")
     report = TrainReport(
         run_name=config.run_name,
         algorithm=AlgorithmConfig(
             name="opd",
             branch="ar",
-            hyperparameters={"per_token_clip": config.per_token_clip},
+            hyperparameters={
+                "per_token_clip": config.per_token_clip,
+                "objective_backend": config.objective_backend,
+            },
         ),
         metrics={
             "objective": objective.objective,
             "raw_objective": objective.diagnostics["raw_objective"],
             "tokens": objective.diagnostics["tokens"],
             "clipped_tokens": objective.diagnostics["clipped_tokens"],
+            "clipped_token_ratio": clipped_token_ratio,
             "mean_teacher_entropy": objective.diagnostics["mean_teacher_entropy"],
         },
     )
@@ -222,3 +263,12 @@ def run_opd_step(
         objective=objective,
         report=report,
     )
+
+
+def _mean_teacher_entropy(teacher_entropies: dict[str, tuple[float, ...]]) -> float:
+    values = [
+        value
+        for entropies in teacher_entropies.values()
+        for value in entropies
+    ]
+    return round(mean(values), 12) if values else 0.0

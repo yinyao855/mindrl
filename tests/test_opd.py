@@ -74,6 +74,27 @@ class OPDLoopTest(unittest.TestCase):
         self.assertEqual(result.report.algorithm.name, "opd")
         self.assertIn("clipped_tokens", result.report.metrics)
 
+    def test_run_opd_step_can_use_generalized_backend(self):
+        policy = MockARPolicy(
+            responses={"p1": "wait add four"},
+            token_logprobs={"opd-0": (-1.3, -0.4, -0.3)},
+        )
+        teacher = MappingTeacherSignalAdapter(
+            token_logprobs={"opd-0": (-0.1, -0.2, -0.2)},
+            entropies={"opd-0": (1.5, 0.4, 0.3)},
+        )
+
+        result = run_opd_step(
+            ("p1",),
+            policy,
+            teacher,
+            OPDConfig(per_token_clip=0.25, objective_backend="generalized"),
+        )
+
+        self.assertAlmostEqual(result.objective.objective, 0.183333333333)
+        self.assertAlmostEqual(result.report.metrics["clipped_token_ratio"], 1 / 3)
+        self.assertEqual(result.report.algorithm.hyperparameters["objective_backend"], "generalized")
+
 
 if __name__ == "__main__":
     unittest.main()

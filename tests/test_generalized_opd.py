@@ -108,6 +108,63 @@ class GeneralizedOPDTest(unittest.TestCase):
         self.assertAlmostEqual(objective.diagnostics["raw_objective"], 0.5)
         self.assertAlmostEqual(objective.diagnostics["clipped_ratio"], 1.0)
 
+    def test_toy_teacher_guided_update_moves_diffusion_state_toward_teacher(self):
+        from mindrl.generalized_opd import (
+            OnPolicyState,
+            TeacherGuidance,
+            TeacherGuidedObjectiveConfig,
+            run_toy_teacher_guided_update,
+        )
+
+        result = run_toy_teacher_guided_update(
+            states=(
+                OnPolicyState("img-1", "diffusion", (0.0, 0.0)),
+            ),
+            guidance=(
+                TeacherGuidance("img-1", "diffusion", (1.0, -1.0), "denoising_score"),
+            ),
+            config=TeacherGuidedObjectiveConfig(
+                name="diffusion-toy-opd",
+                branch="diffusion",
+                per_element_clip=None,
+            ),
+            learning_rate=0.25,
+        )
+
+        self.assertLess(result.after.objective, result.before.objective)
+        self.assertEqual(result.updated_states[0].payload, (0.25, -0.25))
+        self.assertEqual(result.report.algorithm.name, "teacher_guided_opd")
+        self.assertAlmostEqual(result.report.metrics["loss_delta"], -0.25)
+
+    def test_toy_teacher_guided_update_supports_flow_velocity_targets(self):
+        from mindrl.generalized_opd import (
+            OnPolicyState,
+            TeacherGuidance,
+            TeacherGuidedObjectiveConfig,
+            run_toy_teacher_guided_update,
+        )
+
+        result = run_toy_teacher_guided_update(
+            states=(
+                OnPolicyState("flow-1", "flow", (2.0, 0.0), {"anchor_distance": 0.2}),
+            ),
+            guidance=(
+                TeacherGuidance("flow-1", "flow", (1.0, 1.0), "velocity"),
+            ),
+            config=TeacherGuidedObjectiveConfig(
+                name="flow-toy-opd",
+                branch="flow",
+                per_element_clip=None,
+            ),
+            learning_rate=0.5,
+        )
+
+        self.assertEqual(result.updated_states[0].branch, "flow")
+        self.assertEqual(result.updated_states[0].payload, (1.5, 0.5))
+        self.assertEqual(result.updated_states[0].metadata["anchor_distance"], 0.2)
+        self.assertEqual(result.report.algorithm.branch, "flow")
+        self.assertLess(result.after.objective, result.before.objective)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,6 +20,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-new-tokens", type=int, default=8)
     parser.add_argument("--per-token-clip", type=float, default=0.25)
     parser.add_argument("--dtype", default="auto", choices=("auto", "bf16", "fp16", "fp32"))
+    parser.add_argument(
+        "--objective-backend",
+        default="classic",
+        choices=("classic", "generalized"),
+    )
     parser.add_argument("--output-dir", default="outputs/real_opd_smoke")
     return parser.parse_args()
 
@@ -49,7 +54,11 @@ def main() -> None:
         prompts,
         student,
         teacher,
-        OPDConfig(per_token_clip=args.per_token_clip, run_name=f"real-opd-{args.student_model}"),
+        OPDConfig(
+            per_token_clip=args.per_token_clip,
+            run_name=f"real-opd-{args.student_model}",
+            objective_backend=args.objective_backend,
+        ),
     )
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
