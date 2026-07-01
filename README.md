@@ -320,6 +320,7 @@ examples/
   run_real_opd_smoke.py
   run_peft_sft_smoke.py
   run_peft_opd_smoke.py
+  run_ar_ppo_style_smoke.py
 tests/
 docs/
 ```
